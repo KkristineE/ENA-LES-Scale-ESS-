@@ -9,10 +9,10 @@
 %
 clear all
 %
-folderPath_ENA = '/Users/kristineliang/Downloads/zongs/uhm/PHD/Wyoming Project/Data/microbaseka';
-folderPath_LASSO_era5 = '/Users/kristineliang/Downloads/zongs/uhm/PHD/Wyoming Project/Data/LASSO/LASSO Simulation/OUT_2D/era5';
-folderPath_LASSO_merra2 = '/Users/kristineliang/Downloads/zongs/uhm/PHD/Wyoming Project/Data/LASSO/LASSO Simulation/OUT_2D/merra2';
-inputExcel = '/Users/kristineliang/Downloads/zongs/uhm/PHD/Wyoming Project/Meetings/Spr2025/0424/LASSO_IWP.xlsx';
+folderPath_ENA = '/Users/Data/microbaseka';
+folderPath_LASSO_era5 = '/Users/Data/LASSO/LASSO Simulation/OUT_2D/era5';
+folderPath_LASSO_merra2 = '/Users/Data/LASSO/LASSO Simulation/OUT_2D/merra2';
+inputExcel = '/Users/LASSO_IWP.xlsx';
 
 % Read partial names from the Excel file
 DaysTable_oc = readtable(inputExcel,'Sheet', 'Open_cell'); % Assumes names are in the first column
