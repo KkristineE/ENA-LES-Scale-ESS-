@@ -770,7 +770,7 @@ xlabel(t,'Log_{10} of Point-Based IWP (g/m^2)','FontSize', 20,'FontWeight', 'bol
 ylabel(t,'Log_{10} of Area-Based IWP (g/m^2)','FontSize', 20,'FontWeight', 'bold');
 hold off;
 
-%exportgraphics(figure(1),'/Users/kristineliang/Downloads/zongs/uhm/PHD/Wyoming Project/Meetings/Spr2025/0724/PanelPlot_IWP_log_era5_MC.png')
+%exportgraphics(figure(1),'/Users/PanelPlot_IWP_log_era5_MC.png')
 
 %% Ratio Plot
 figure(1)
@@ -865,7 +865,7 @@ end
 annotation('textbox', [0.2, 0.45, 0, 0], 'String', 'IWP_{open-cell}', 'FontSize', 20, 'Rotation', 90, 'HorizontalAlignment', 'center', 'FitBoxToText', 'on', 'EdgeColor', 'none', 'FontWeight', 'bold');
 text(4.5, -4.3, '(a)','FontSize', 30,'FontWeight', 'bold')
 hold off;
-%exportgraphics(figure(1),'/Users/kristineliang/Downloads/zongs/uhm/PHD/Wyoming Project/Meetings/Spr2025/0724/PanelPlot_era5_IWP_oc_box_com.png')
+%exportgraphics(figure(1),'/Users/PanelPlot_era5_IWP_oc_box_com.png')
 
 figure(2)
 
@@ -956,7 +956,7 @@ end
 annotation('textbox', [0.21, 0.45, 0, 0], 'String', 'IWP_{transitional}', 'FontSize', 20, 'Rotation', 90, 'HorizontalAlignment', 'center', 'FitBoxToText', 'on', 'EdgeColor', 'none', 'FontWeight', 'bold');
 text(4.5, -4.3, '(b)','FontSize', 30,'FontWeight', 'bold')
 hold off;
-%exportgraphics(figure(2),'/Users/kristineliang/Downloads/zongs/uhm/PHD/Wyoming Project/Meetings/Spr2025/0724/PanelPlot_era5_IWP_o_box_com.png')
+%exportgraphics(figure(2),'/Users/PanelPlot_era5_IWP_o_box_com.png')
 
 figure(3)
 
@@ -1062,4 +1062,4 @@ annotation('textbox', [0.52, 0.08, 0, 0], 'String', 'Spatial Scale (km)', 'FontS
 annotation('textbox', [0.2, 0.45, 0, 0], 'String', 'IWP_{all cases}', 'FontSize', 20, 'Rotation', 90, 'HorizontalAlignment', 'center', 'FitBoxToText', 'on', 'EdgeColor', 'none', 'FontWeight', 'bold');
 text(4.5, -4.3, '(c)','FontSize', 30,'FontWeight', 'bold')
 hold off;
-%exportgraphics(figure(3),'/Users/kristineliang/Downloads/zongs/uhm/PHD/Wyoming Project/Meetings/Spr2025/0724/PanelPlot_era5_IWP_sum_box_com.png')
+%exportgraphics(figure(3),'/Users/PanelPlot_era5_IWP_sum_box_com.png')
