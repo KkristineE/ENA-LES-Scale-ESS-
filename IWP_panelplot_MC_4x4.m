@@ -4,7 +4,7 @@
 % DATE: 06-18-2025
 % UPDATE: Modify the ratio calculation
 % UPDATE:
-% Author: JK
+% Author: Kristine
 %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 %
 clear all
