@@ -1,0 +1,1490 @@
+% TITLE: ENA - LASSO simulation
+% 
+%
+% DATE: 06-17-2025
+% UPDATE: TROPOE as LWP data & Monte Carlo Method & 4x4 panel 
+%
+% Author: Kristine
+%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+%
+clear all
+
+folderPath_ENA = '/Users/Data/tropoe';
+folderPath_LASSO_era5 = '/Users/Data/LASSO/LASSO Simulation/OUT_2D/era5';
+folderPath_LASSO_merra2 = '/Users/Data/LASSO/LASSO Simulation/OUT_2D/merra2';
+inputExcel = '/Users/ENA_LWP_new.xlsx';
+
+% Read partial names from the Excel file
+DaysTable_cc = readtable(inputExcel,'Sheet', 'Closed_cell'); % Assumes names are in the first column
+DaysTable_oc = readtable(inputExcel,'Sheet', 'Open_cell'); % Assumes names are in the first column
+DaysTable_o = readtable(inputExcel,'Sheet', 'Other'); % Assumes names are in the first column
+Days_cc = DaysTable_cc{:, 1}; % Extract as a cell array
+Days_oc = DaysTable_oc{:, 1}; % Extract as a cell array
+Days_o = DaysTable_o{:, 1}; % Extract as a cell array
+%
+ENA_LWP_cc = {};
+ENA_LWP_oc = {};
+ENA_LWP_o = {};
+LASSO_era5_LWP_cc = {};
+LASSO_era5_LWP_oc = {};
+LASSO_era5_LWP_o = {};
+LASSO_merra2_LWP_cc = {};
+LASSO_merra2_LWP_oc = {};
+LASSO_merra2_LWP_o = {};
+%
+ENA_time_cc = {};
+ENA_time_oc = {};
+ENA_time_o = {};
+LASSO_era5_x_cc = {};
+LASSO_era5_x_oc = {};
+LASSO_era5_x_o = {};
+LASSO_era5_y_cc = {};
+LASSO_era5_y_oc = {};
+LASSO_era5_y_o = {};
+LASSO_merra2_x_cc = {};
+LASSO_merra2_x_oc = {};
+LASSO_merra2_x_o = {};
+LASSO_merra2_y_cc = {};
+LASSO_merra2_y_oc = {};
+LASSO_merra2_y_o = {};
+
+% Closed-cell
+for i = 1:length(Days_cc)
+    Day_cc = Days_cc{i};
+       
+    filePattern_LASSO_era5_cc = fullfile(folderPath_LASSO_era5,['*' Day_cc '*.nc'])
+    filePattern_LASSO_merra2_cc = fullfile(folderPath_LASSO_merra2,['*' Day_cc '*.nc'])
+    fileList_LASSO_era5_cc = dir(filePattern_LASSO_era5_cc);
+    fileList_LASSO_merra2_cc = dir(filePattern_LASSO_merra2_cc);
+    filePattern_ENA_cc = fullfile(folderPath_ENA,['*' Day_cc '*.nc'])
+    fileList_ENA_cc = dir(filePattern_ENA_cc);
+
+    % Process all matching files for this partial name
+    for k = 1:length(fileList_ENA_cc)
+         fileName_ENA_cc = fullfile(folderPath_ENA, fileList_ENA_cc(k).name);
+        
+        % Read data (modify dataset path as needed)
+        try
+            ENA_lwp_read_cc = ncread(fileName_ENA_cc, 'lwp');
+            ENA_time_read_cc = ncread(fileName_ENA_cc, 'time');
+            
+            ENA_lwp_data_cc = zeros(32500,1);
+            ENA_time_data_cc = zeros(32500,1);
+            
+            for e = 1:length(ENA_lwp_read_cc)
+                ENA_lwp_data_cc(e,:) = ENA_lwp_read_cc(e,:);
+                ENA_time_data_cc(e,:) = ENA_time_read_cc(e,:);
+            end
+            ENA_lwp_data_cc(ENA_lwp_data_cc == 0) = NaN;
+            ENA_lwp_data_cc(ENA_lwp_data_cc == -9999) = NaN;
+        end
+    end
+
+    % Process all matching files for this partial name
+    for l = 1:length(fileList_LASSO_era5_cc)
+        fileName_LASSO_era5_cc = fullfile(folderPath_LASSO_era5, fileList_LASSO_era5_cc(l).name);
+        fileName_LASSO_merra2_cc = fullfile(folderPath_LASSO_merra2, fileList_LASSO_merra2_cc(l).name);
+
+        LASSO_era5_cwp_read_cc = ncread(fileName_LASSO_era5_cc, 'CWP');
+        LASSO_era5_iwp_read_cc = ncread(fileName_LASSO_era5_cc, 'IWP');
+        LASSO_merra2_cwp_read_cc = ncread(fileName_LASSO_merra2_cc, 'CWP');
+        LASSO_merra2_iwp_read_cc = ncread(fileName_LASSO_merra2_cc, 'IWP');
+
+        % Calculate lwp
+        LASSO_era5_lwp_index_cc = LASSO_era5_cwp_read_cc*1000 - LASSO_era5_iwp_read_cc*1000;
+        LASSO_merra2_lwp_index_cc = LASSO_merra2_cwp_read_cc*1000 - LASSO_merra2_iwp_read_cc*1000;
+        LASSO_era5_lwp_index_cc(LASSO_era5_lwp_index_cc == 0) = NaN;
+        LASSO_merra2_lwp_index_cc(LASSO_merra2_lwp_index_cc == 0) = NaN;
+
+        % Replace zeros in CWP with NaN
+        LASSO_era5_cwp_read_cc(LASSO_era5_cwp_read_cc == 0) = NaN;
+        LASSO_merra2_cwp_read_cc(LASSO_merra2_cwp_read_cc == 0) = NaN;
+        
+        % Replace negative LWP values with corresponding CWP values
+        neg_mask_era5_cc = LASSO_era5_lwp_index_cc < 0;
+        neg_mask_merra2_cc = LASSO_merra2_lwp_index_cc < 0;
+        LASSO_era5_lwp_index_cc(neg_mask_era5_cc) = LASSO_era5_cwp_read_cc(neg_mask_era5_cc);
+        LASSO_merra2_lwp_index_cc(neg_mask_merra2_cc) = LASSO_merra2_cwp_read_cc(neg_mask_merra2_cc);
+        
+        LASSO_era5_lwp_data_cc(:,:,l) = LASSO_era5_lwp_index_cc;
+        LASSO_merra2_lwp_data_cc(:,:,l) = LASSO_merra2_lwp_index_cc;
+        LASSO_era5_x_data_cc(:,:,l) = ncread(fileName_LASSO_era5_cc, 'x');
+        LASSO_era5_y_data_cc(:,:,l) = ncread(fileName_LASSO_era5_cc, 'y');
+        LASSO_merra2_x_data_cc(:,:,l) = ncread(fileName_LASSO_merra2_cc, 'x');
+        LASSO_merra2_y_data_cc(:,:,l) = ncread(fileName_LASSO_merra2_cc, 'y');
+    end
+        ENA_LWP_cc{i} = ENA_lwp_data_cc;
+        ENA_time_cc{i} = ENA_time_data_cc;
+        LASSO_era5_LWP_cc{i} = LASSO_era5_lwp_data_cc(:,:,73:288);
+        LASSO_merra2_LWP_cc{i} = LASSO_merra2_lwp_data_cc(:,:,73:288);
+
+        LASSO_era5_x_cc{i} = LASSO_era5_x_data_cc(:,:,73:288);
+        LASSO_era5_y_cc{i} = LASSO_era5_y_data_cc(:,:,73:288);
+        LASSO_merra2_x_cc{i} = LASSO_merra2_x_data_cc(:,:,73:288);
+        LASSO_merra2_y_cc{i} = LASSO_merra2_y_data_cc(:,:,73:288);
+end
+
+% Open-cell
+for i = 1:length(Days_oc)
+    Day_oc = Days_oc{i};
+       
+    filePattern_LASSO_era5_oc = fullfile(folderPath_LASSO_era5,['*' Day_oc '*.nc'])
+    filePattern_LASSO_merra2_oc = fullfile(folderPath_LASSO_merra2,['*' Day_oc '*.nc'])
+    fileList_LASSO_era5_oc = dir(filePattern_LASSO_era5_oc);
+    fileList_LASSO_merra2_oc = dir(filePattern_LASSO_merra2_oc);
+    filePattern_ENA_oc = fullfile(folderPath_ENA,['*' Day_oc '*.nc'])
+    fileList_ENA_oc = dir(filePattern_ENA_oc);
+
+    % Process all matching files for this partial name
+    for k = 1:length(fileList_ENA_oc)
+         fileName_ENA_oc = fullfile(folderPath_ENA, fileList_ENA_oc(k).name);
+        
+        % Read data (modify dataset path as needed)
+        try
+            ENA_lwp_read_oc = ncread(fileName_ENA_oc, 'lwp');
+            ENA_time_read_oc = ncread(fileName_ENA_oc, 'time');
+            
+            ENA_lwp_data_oc = zeros(32500,1);
+            ENA_time_data_oc = zeros(32500,1);
+            
+            for e = 1:length(ENA_lwp_read_oc)
+                ENA_lwp_data_oc(e,:) = ENA_lwp_read_oc(e,:);
+                ENA_time_data_oc(e,:) = ENA_time_read_oc(e,:);
+            end
+            ENA_lwp_data_oc(ENA_lwp_data_oc == 0) = NaN;
+            ENA_lwp_data_oc(ENA_lwp_data_oc == -9999) = NaN;
+        end
+    end
+
+    for l = 1:length(fileList_LASSO_era5_oc)
+        fileName_LASSO_era5_oc = fullfile(folderPath_LASSO_era5, fileList_LASSO_era5_oc(l).name);
+        fileName_LASSO_merra2_oc = fullfile(folderPath_LASSO_merra2, fileList_LASSO_merra2_oc(l).name);
+
+        LASSO_era5_cwp_read_oc = ncread(fileName_LASSO_era5_oc, 'CWP');
+        LASSO_era5_iwp_read_oc = ncread(fileName_LASSO_era5_oc, 'IWP');
+        LASSO_merra2_cwp_read_oc = ncread(fileName_LASSO_merra2_oc, 'CWP');
+        LASSO_merra2_iwp_read_oc = ncread(fileName_LASSO_merra2_oc, 'IWP');
+                
+        % Calculate lwp
+        LASSO_era5_lwp_index_oc = LASSO_era5_cwp_read_oc*1000 - LASSO_era5_iwp_read_oc*1000;
+        LASSO_merra2_lwp_index_oc = LASSO_merra2_cwp_read_oc*1000 - LASSO_merra2_iwp_read_oc*1000;
+        LASSO_era5_lwp_index_oc(LASSO_era5_lwp_index_oc == 0) = NaN;
+        LASSO_merra2_lwp_index_oc(LASSO_merra2_lwp_index_oc == 0) = NaN;
+
+        % Replace zeros in CWP with NaN
+        LASSO_era5_cwp_read_oc(LASSO_era5_cwp_read_oc == 0) = NaN;
+        LASSO_merra2_cwp_read_oc(LASSO_merra2_cwp_read_oc == 0) = NaN;
+        
+        % Replace negative LWP values with corresponding CWP values
+        neg_mask_era5_oc = LASSO_era5_lwp_index_oc < 0;
+        neg_mask_merra2_oc = LASSO_merra2_lwp_index_oc < 0;
+        LASSO_era5_lwp_index_oc(neg_mask_era5_oc) = LASSO_era5_cwp_read_oc(neg_mask_era5_oc);
+        LASSO_merra2_lwp_index_oc(neg_mask_merra2_oc) = LASSO_merra2_cwp_read_oc(neg_mask_merra2_oc);
+
+        LASSO_era5_lwp_data_oc(:,:,l) = LASSO_era5_lwp_index_oc;
+        LASSO_merra2_lwp_data_oc(:,:,l) = LASSO_merra2_lwp_index_oc;
+        LASSO_era5_x_data_oc(:,:,l) = ncread(fileName_LASSO_era5_oc, 'x');
+        LASSO_era5_y_data_oc(:,:,l) = ncread(fileName_LASSO_era5_oc, 'y');
+        LASSO_merra2_x_data_oc(:,:,l) = ncread(fileName_LASSO_merra2_oc, 'x');
+        LASSO_merra2_y_data_oc(:,:,l) = ncread(fileName_LASSO_merra2_oc, 'y');
+    end
+        ENA_LWP_oc{i} = ENA_lwp_data_oc;
+        ENA_time_oc{i} = ENA_time_data_oc;
+
+        LASSO_era5_LWP_oc{i} = LASSO_era5_lwp_data_oc(:,:,73:288);
+        LASSO_merra2_LWP_oc{i} = LASSO_merra2_lwp_data_oc(:,:,73:288);
+
+        LASSO_era5_x_oc{i} = LASSO_era5_x_data_oc(:,:,73:288);
+        LASSO_era5_y_oc{i} = LASSO_era5_y_data_oc(:,:,73:288);
+        LASSO_merra2_x_oc{i} = LASSO_merra2_x_data_oc(:,:,73:288);
+        LASSO_merra2_y_oc{i} = LASSO_merra2_y_data_oc(:,:,73:288);
+end
+
+% Transitional 
+for i = 1:length(Days_o)
+    Day_o = Days_o{i};
+       
+    filePattern_LASSO_era5_o = fullfile(folderPath_LASSO_era5,['*' Day_o '*.nc'])
+    filePattern_LASSO_merra2_o = fullfile(folderPath_LASSO_merra2,['*' Day_o '*.nc'])
+    fileList_LASSO_era5_o = dir(filePattern_LASSO_era5_o);
+    fileList_LASSO_merra2_o = dir(filePattern_LASSO_merra2_o);
+    filePattern_ENA_o = fullfile(folderPath_ENA,['*' Day_o '*.nc'])
+    fileList_ENA_o = dir(filePattern_ENA_o);
+
+    % Process all matching files for this partial name
+    for k = 1:length(fileList_ENA_o)
+         fileName_ENA_o = fullfile(folderPath_ENA, fileList_ENA_o(k).name);
+        
+        % Read data (modify dataset path as needed)
+        try
+            ENA_lwp_read_o = ncread(fileName_ENA_o, 'lwp');
+            ENA_time_read_o = ncread(fileName_ENA_o, 'time');
+            
+            ENA_lwp_data_o = zeros(32500,1);
+            ENA_time_data_o = zeros(32500,1);
+            
+            for e = 1:length(ENA_lwp_read_o)
+                ENA_lwp_data_o(e,:) = ENA_lwp_read_o(e,:);
+                ENA_time_data_o(e,:) = ENA_time_read_o(e,:);
+            end
+            ENA_lwp_data_o(ENA_lwp_data_o == 0) = NaN;
+            ENA_lwp_data_o(ENA_lwp_data_o == -9999) = NaN;
+        end
+    end
+
+    for l = 1:length(fileList_LASSO_era5_o)
+        fileName_LASSO_era5_o = fullfile(folderPath_LASSO_era5, fileList_LASSO_era5_o(l).name);
+        fileName_LASSO_merra2_o = fullfile(folderPath_LASSO_merra2, fileList_LASSO_merra2_o(l).name);
+
+        LASSO_era5_cwp_read_o = ncread(fileName_LASSO_era5_o, 'CWP');
+        LASSO_era5_iwp_read_o = ncread(fileName_LASSO_era5_o, 'IWP');
+        LASSO_merra2_cwp_read_o = ncread(fileName_LASSO_merra2_o, 'CWP');
+        LASSO_merra2_iwp_read_o = ncread(fileName_LASSO_merra2_o, 'IWP');
+                
+        % Calculate lwp
+        LASSO_era5_lwp_index_o = LASSO_era5_cwp_read_o*1000 - LASSO_era5_iwp_read_o*1000;
+        LASSO_merra2_lwp_index_o = LASSO_merra2_cwp_read_o*1000 - LASSO_merra2_iwp_read_o*1000;
+        LASSO_era5_lwp_index_o(LASSO_era5_lwp_index_o == 0) = NaN;
+        LASSO_merra2_lwp_index_o(LASSO_merra2_lwp_index_o == 0) = NaN;
+
+        % Replace zeros in CWP with NaN
+        LASSO_era5_cwp_read_o(LASSO_era5_cwp_read_o == 0) = NaN;
+        LASSO_merra2_cwp_read_o(LASSO_merra2_cwp_read_o == 0) = NaN;
+        
+        % Replace negative LWP values with corresponding CWP values
+        neg_mask_era5_o = LASSO_era5_lwp_index_o < 0;
+        neg_mask_merra2_o = LASSO_merra2_lwp_index_o < 0;
+        LASSO_era5_lwp_index_o(neg_mask_era5_o) = LASSO_era5_cwp_read_o(neg_mask_era5_o);
+        LASSO_merra2_lwp_index_o(neg_mask_merra2_o) = LASSO_merra2_cwp_read_o(neg_mask_merra2_o);
+
+        LASSO_era5_lwp_data_o(:,:,l) = LASSO_era5_lwp_index_o;
+        LASSO_merra2_lwp_data_o(:,:,l) = LASSO_merra2_lwp_index_o;
+        LASSO_era5_x_data_o(:,:,l) = ncread(fileName_LASSO_era5_o, 'x');
+        LASSO_era5_y_data_o(:,:,l) = ncread(fileName_LASSO_era5_o, 'y');
+        LASSO_merra2_x_data_o(:,:,l) = ncread(fileName_LASSO_merra2_o, 'x');
+        LASSO_merra2_y_data_o(:,:,l) = ncread(fileName_LASSO_merra2_o, 'y');
+    end
+        ENA_LWP_o{i} = ENA_lwp_data_o;
+        ENA_time_o{i} = ENA_time_data_o;
+
+        LASSO_era5_LWP_o{i} = LASSO_era5_lwp_data_o(:,:,73:288);
+        LASSO_merra2_LWP_o{i} = LASSO_merra2_lwp_data_o(:,:,73:288);
+
+        LASSO_era5_x_o{i} = LASSO_era5_x_data_o(:,:,73:288);
+        LASSO_era5_y_o{i} = LASSO_era5_y_data_o(:,:,73:288);
+        LASSO_merra2_x_o{i} = LASSO_merra2_x_data_o(:,:,73:288);
+        LASSO_merra2_y_o{i} = LASSO_merra2_y_data_o(:,:,73:288);
+end
+
+disp('Data processing complete.');
+
+% Different time intervals
+% Define the number of time steps per interval
+LASSO_intervals = [1, 3, 6];  % Hours: 1hr, 3hr, 6hr
+LASSO_minutes = [60, 180, 360];  % Convert hours to minutes
+LASSO_points = LASSO_minutes / 5;  % Convert to number of 5-min intervals
+
+% Closed-cell
+% Initialize a cell array to store the temporal averages for each interval
+LASSO_era5_temporal_ave_cc = cell(1, length(LASSO_intervals) + 1);
+LASSO_merra2_temporal_ave_cc = cell(1, length(LASSO_intervals) + 1);
+
+% Loop through each data file
+for i = 1:length(LASSO_intervals)
+    n_points = LASSO_points(i);  % Number of time steps for the current interval
+
+    % Initialize a cell array for storing averages for each file in the current interval
+    LASSO_era5_temporal_ave_cc{i} = cell(1, length(LASSO_era5_LWP_cc));
+    LASSO_merra2_temporal_ave_cc{i} = cell(1, length(LASSO_merra2_LWP_cc));
+    
+    % Loop through each time interval
+    for file_idx = 1:length(LASSO_era5_LWP_cc)
+        LASSO_era5_interval_data_cc = LASSO_era5_LWP_cc{file_idx};  % Get the current data file 
+        LASSO_merra2_interval_data_cc = LASSO_merra2_LWP_cc{file_idx};  % Get the current data file 
+        
+        LASSO_era5_avg_m_cc = cellfun(@(x) nanmean(x, 3), LASSO_era5_LWP_cc, 'UniformOutput', false); % Concatenate along 4th dimension and compute mean
+        LASSO_era5_temporal_ave_cc{4} = LASSO_era5_avg_m_cc;  % Store the original 256x256 matrix for the last file (only once)
+        LASSO_merra2_avg_m_cc = cellfun(@(x) nanmean(x, 3), LASSO_merra2_LWP_cc, 'UniformOutput', false); % Concatenate along 4th dimension and compute mean
+        LASSO_merra2_temporal_ave_cc{4} = LASSO_merra2_avg_m_cc; % Store the original 256x256 matrix for the last file (only once)
+
+        % Make sure data length is divisible by the interval length
+        if mod(size(LASSO_era5_interval_data_cc, 3), n_points) ~= 0
+            LASSO_era5_interval_data_cc = LASSO_era5_interval_data_cc(:, :, 1:floor(size(LASSO_era5_interval_data_cc, 3) / n_points) * n_points);  % Trim data if necessary
+            LASSO_merra2_interval_data_cc = LASSO_merra2_interval_data_cc(:, :, 1:floor(size(LASSO_merra2_interval_data_cc, 3) / n_points) * n_points);  % Trim data if necessary
+        end
+        
+        % Reshape data to group into the desired time intervals (averaging along 3rd dimension)
+        LASSO_era5_reshaped_data_cc = reshape(LASSO_era5_interval_data_cc, size(LASSO_era5_interval_data_cc, 1), size(LASSO_era5_interval_data_cc, 2), n_points, []);
+        LASSO_merra2_reshaped_data_cc = reshape(LASSO_merra2_interval_data_cc, size(LASSO_merra2_interval_data_cc, 1), size(LASSO_merra2_interval_data_cc, 2), n_points, []);
+        
+        % Calculate temporal averages along the 3rd dimension (average across time steps for each group)
+        LASSO_era5_avg_data_cc = squeeze(nanmean(LASSO_era5_reshaped_data_cc, 3));  % Average across the 3rd dimension (time)
+        LASSO_merra2_avg_data_cc = squeeze(nanmean(LASSO_merra2_reshaped_data_cc, 3));  % Average across the 3rd dimension (time)
+        
+        % Store the result in the temporal_averages cell array
+        LASSO_era5_temporal_ave_cc{i}{file_idx} = LASSO_era5_avg_data_cc;  % Store results for each file in separate cells
+        LASSO_merra2_temporal_ave_cc{i}{file_idx} = LASSO_merra2_avg_data_cc;  % Store results for each file in separate cells
+    end
+end
+
+% Open-cell
+% Initialize a cell array to store the temporal averages for each interval
+LASSO_era5_temporal_ave_oc = cell(1, length(LASSO_intervals) + 1);
+LASSO_merra2_temporal_ave_oc = cell(1, length(LASSO_intervals) + 1);
+
+% Loop through each data file
+for i = 1:length(LASSO_intervals)
+    n_points = LASSO_points(i);  % Number of time steps for the current interval
+
+    % Initialize a cell array for storing averages for each file in the current interval
+    LASSO_era5_temporal_ave_oc{i} = cell(1, length(LASSO_era5_LWP_oc));
+    LASSO_merra2_temporal_ave_oc{i} = cell(1, length(LASSO_merra2_LWP_oc));
+    
+    % Loop through each time interval
+    for file_idx = 1:length(LASSO_era5_LWP_oc)
+        LASSO_era5_interval_data_oc = LASSO_era5_LWP_oc{file_idx};  % Get the current data file 
+        LASSO_merra2_interval_data_oc = LASSO_merra2_LWP_oc{file_idx};  % Get the current data file 
+        
+        LASSO_era5_avg_m_oc = cellfun(@(x) nanmean(x, 3), LASSO_era5_LWP_oc, 'UniformOutput', false); % Concatenate along 4th dimension and compute mean
+        LASSO_era5_temporal_ave_oc{4} = LASSO_era5_avg_m_oc;  % Store the original 256x256 matrix for the last file (only once)
+        LASSO_merra2_avg_m_oc = cellfun(@(x) nanmean(x, 3), LASSO_merra2_LWP_oc, 'UniformOutput', false); % Concatenate along 4th dimension and compute mean
+        LASSO_merra2_temporal_ave_oc{4} = LASSO_merra2_avg_m_oc; % Store the original 256x256 matrix for the last file (only once)
+
+        % Make sure data length is divisible by the interval length
+        if mod(size(LASSO_era5_interval_data_oc, 3), n_points) ~= 0
+            LASSO_era5_interval_data_oc = LASSO_era5_interval_data_oc(:, :, 1:floor(size(LASSO_era5_interval_data_oc, 3) / n_points) * n_points);  % Trim data if necessary
+            LASSO_merra2_interval_data_oc = LASSO_merra2_interval_data_oc(:, :, 1:floor(size(LASSO_merra2_interval_data_oc, 3) / n_points) * n_points);  % Trim data if necessary
+        end
+        
+        % Reshape data to group into the desired time intervals (averaging along 3rd dimension)
+        LASSO_era5_reshaped_data_oc = reshape(LASSO_era5_interval_data_oc, size(LASSO_era5_interval_data_oc, 1), size(LASSO_era5_interval_data_oc, 2), n_points, []);
+        LASSO_merra2_reshaped_data_oc = reshape(LASSO_merra2_interval_data_oc, size(LASSO_merra2_interval_data_oc, 1), size(LASSO_merra2_interval_data_oc, 2), n_points, []);
+        
+        % Calculate temporal averages along the 3rd dimension (average across time steps for each group)
+        LASSO_era5_avg_data_oc = squeeze(nanmean(LASSO_era5_reshaped_data_oc, 3));  % Average across the 3rd dimension (time)
+        LASSO_merra2_avg_data_oc = squeeze(nanmean(LASSO_merra2_reshaped_data_oc, 3));  % Average across the 3rd dimension (time)
+        
+        % Store the result in the temporal_averages cell array
+        LASSO_era5_temporal_ave_oc{i}{file_idx} = LASSO_era5_avg_data_oc;  % Store results for each file in separate cells
+        LASSO_merra2_temporal_ave_oc{i}{file_idx} = LASSO_merra2_avg_data_oc;  % Store results for each file in separate cells
+    end
+end
+
+% Transitional 
+% Initialize a cell array to store the temporal averages for each interval
+LASSO_era5_temporal_ave_o = cell(1, length(LASSO_intervals) + 1);
+LASSO_merra2_temporal_ave_o = cell(1, length(LASSO_intervals) + 1);
+
+% Loop through each data file
+for i = 1:length(LASSO_intervals)
+    n_points = LASSO_points(i);  % Number of time steps for the current interval
+
+    % Initialize a cell array for storing averages for each file in the current interval
+    LASSO_era5_temporal_ave_o{i} = cell(1, length(LASSO_era5_LWP_o));
+    LASSO_merra2_temporal_ave_o{i} = cell(1, length(LASSO_merra2_LWP_o));
+    
+    % Loop through each time interval
+    for file_idx = 1:length(LASSO_era5_LWP_o)
+        LASSO_era5_interval_data_o = LASSO_era5_LWP_o{file_idx};  % Get the current data file 
+        LASSO_merra2_interval_data_o = LASSO_merra2_LWP_o{file_idx};  % Get the current data file 
+        
+        LASSO_era5_avg_m_o = cellfun(@(x) nanmean(x, 3), LASSO_era5_LWP_o, 'UniformOutput', false); % Concatenate along 4th dimension and compute mean
+        LASSO_era5_temporal_ave_o{4} = LASSO_era5_avg_m_o;  % Store the original 256x256 matrix for the last file (only once)
+        LASSO_merra2_avg_m_o = cellfun(@(x) nanmean(x, 3), LASSO_merra2_LWP_o, 'UniformOutput', false); % Concatenate along 4th dimension and compute mean
+        LASSO_merra2_temporal_ave_o{4} = LASSO_merra2_avg_m_o; % Store the original 256x256 matrix for the last file (only once)
+
+        % Make sure data length is divisible by the interval length
+        if mod(size(LASSO_era5_interval_data_o, 3), n_points) ~= 0
+            LASSO_era5_interval_data_o = LASSO_era5_interval_data_o(:, :, 1:floor(size(LASSO_era5_interval_data_o, 3) / n_points) * n_points);  % Trim data if necessary
+            LASSO_merra2_interval_data_o = LASSO_merra2_interval_data_o(:, :, 1:floor(size(LASSO_merra2_interval_data_o, 3) / n_points) * n_points);  % Trim data if necessary
+        end
+        
+        % Reshape data to group into the desired time intervals (averaging along 3rd dimension)
+        LASSO_era5_reshaped_data_o = reshape(LASSO_era5_interval_data_o, size(LASSO_era5_interval_data_o, 1), size(LASSO_era5_interval_data_o, 2), n_points, []);
+        LASSO_merra2_reshaped_data_o = reshape(LASSO_merra2_interval_data_o, size(LASSO_merra2_interval_data_o, 1), size(LASSO_merra2_interval_data_o, 2), n_points, []);
+        
+        % Calculate temporal averages along the 3rd dimension (average across time steps for each group)
+        LASSO_era5_avg_data_o = squeeze(nanmean(LASSO_era5_reshaped_data_o, 3));  % Average across the 3rd dimension (time)
+        LASSO_merra2_avg_data_o = squeeze(nanmean(LASSO_merra2_reshaped_data_o, 3));  % Average across the 3rd dimension (time)
+        
+        % Store the result in the temporal_averages cell array
+        LASSO_era5_temporal_ave_o{i}{file_idx} = LASSO_era5_avg_data_o;  % Store results for each file in separate cells
+        LASSO_merra2_temporal_ave_o{i}{file_idx} = LASSO_merra2_avg_data_o;  % Store results for each file in separate cells
+    end
+end
+
+% ENA
+% Time intervals and data matrices
+ENA_hours = [3600, 10800, 21600, 64800];  % Define the intervals
+ENA_intervals = 64800./ENA_hours;
+
+% Closed-cell
+for i = 1:length(ENA_intervals)
+    for j = 1:length(ENA_LWP_cc)
+        ENA_temporal_lwp_index_cc = ENA_LWP_cc{j};
+        ENA_temporal_t_index_cc = ENA_time_cc{j};
+        ENA_temporal_t_index_cc(ENA_temporal_t_index_cc == 0) = NaN;
+        ENA_temporal_data_cc = zeros(63,ENA_intervals(i));
+        
+        ENA_temporal_ave_index1_cc = ENA_LWP_cc{j}
+        ENA_box_ave_index1_cc = nanmean(ENA_temporal_ave_index1_cc);
+
+        for file_idx = 1:ENA_intervals(i)
+            [a,b] = find(ENA_temporal_t_index_cc >= ENA_hours(i) * (file_idx - 1) & ENA_temporal_t_index_cc < ENA_hours(i) * file_idx);
+
+            for k = 1:length(a);
+                ENA_temporal_data_cc(a(k,:), file_idx) = ENA_temporal_lwp_index_cc(a(k,:), 1);
+            end
+        end
+        ENA_temporal_data_cc(ENA_temporal_data_cc == 0) = NaN;
+        ENA_temporal_ave_data_cc(j,:) = nanmean(ENA_temporal_data_cc);
+        %clear ENA_temporal_data
+    end
+    ENA_temporal_ave_data_cc(ENA_temporal_ave_data_cc == 0) = NaN;
+    ENA_temporal_ave_cc{i} = ENA_temporal_ave_data_cc;
+    clear ENA_temporal_ave_data_cc
+end
+
+% Open-cell
+for i = 1:length(ENA_intervals)
+    for j = 1:length(ENA_LWP_oc)
+        ENA_temporal_lwp_index_oc = ENA_LWP_oc{j};
+        ENA_temporal_t_index_oc = ENA_time_oc{j};
+        ENA_temporal_t_index_oc(ENA_temporal_t_index_oc == 0) = NaN;
+        ENA_temporal_data_oc = zeros(63,ENA_intervals(i));
+        
+        ENA_temporal_ave_index1_oc = ENA_LWP_oc{j}
+        ENA_box_ave_index1_oc = nanmean(ENA_temporal_ave_index1_oc);
+
+        for file_idx = 1:ENA_intervals(i)
+            [a,b] = find(ENA_temporal_t_index_oc >= ENA_hours(i) * (file_idx - 1) & ENA_temporal_t_index_oc < ENA_hours(i) * file_idx);
+
+            for k = 1:length(a);
+                ENA_temporal_data_oc(a(k,:), file_idx) = ENA_temporal_lwp_index_oc(a(k,:), 1);
+            end
+        end
+        ENA_temporal_data_oc(ENA_temporal_data_oc == 0) = NaN;
+        ENA_temporal_ave_data_oc(j,:) = nanmean(ENA_temporal_data_oc);
+        %clear ENA_temporal_data
+    end
+    ENA_temporal_ave_data_oc(ENA_temporal_ave_data_oc == 0) = NaN;
+    ENA_temporal_ave_oc{i} = ENA_temporal_ave_data_oc;
+    clear ENA_temporal_ave_data_oc
+end
+
+% Transitional 
+for i = 1:length(ENA_intervals)
+    for j = 1:length(ENA_LWP_o)
+        ENA_temporal_lwp_index_o = ENA_LWP_o{j};
+        ENA_temporal_t_index_o = ENA_time_o{j};
+        ENA_temporal_t_index_o(ENA_temporal_t_index_o == 0) = NaN;
+        ENA_temporal_data_o = zeros(63,ENA_intervals(i));
+        
+        ENA_temporal_ave_index1_o = ENA_LWP_o{j}
+        ENA_box_ave_index1_o = nanmean(ENA_temporal_ave_index1_o);
+
+        for file_idx = 1:ENA_intervals(i)
+            [a,b] = find(ENA_temporal_t_index_o >= ENA_hours(i) * (file_idx - 1) & ENA_temporal_t_index_o < ENA_hours(i) * file_idx);
+
+            for k = 1:length(a);
+                ENA_temporal_data_o(a(k,:), file_idx) = ENA_temporal_lwp_index_o(a(k,:), 1);
+            end
+        end
+        ENA_temporal_data_o(ENA_temporal_data_o == 0) = NaN;
+        ENA_temporal_ave_data_o(j,:) = nanmean(ENA_temporal_data_o);
+        %clear ENA_temporal_data
+    end
+    ENA_temporal_ave_data_o(ENA_temporal_ave_data_o == 0) = NaN;
+    ENA_temporal_ave_o{i} = ENA_temporal_ave_data_o;
+    clear ENA_temporal_ave_data_o
+end
+
+for i = 1:10
+    beep;
+    pause(0.5);  % half-second pause between beeps
+end
+%
+%% Monte Carlo Method
+N_iter = 1000;  % Number of Monte Carlo iterations
+box_size = [10 50 150 250];  % Example: 50 grid points (~5 km if resolution is 100 m)
+ratios_box_era5_cc = {};  % Store ratio of point vs area mean
+ratios_box_era5_oc = {};  % Store ratio of point vs area mean
+ratios_box_era5_o = {};  % Store ratio of point vs area mean
+ratios_box_merra2_cc = {};  % Store ratio of point vs area mean
+ratios_box_merra2_oc = {};  % Store ratio of point vs area mean
+ratios_box_merra2_o = {};  % Store ratio of point vs area mean
+point_box_val_era5_cc = {};
+point_box_val_era5_oc = {};
+point_box_val_era5_o = {};
+point_box_val_merra2_cc = {};
+point_box_val_merra2_oc = {};
+point_box_val_merra2_o = {};
+mean_box_a_era5_cc = {};
+mean_box_a_era5_oc = {};
+mean_box_a_era5_o = {};
+mean_box_a_merra2_cc = {};
+mean_box_a_merra2_oc = {};
+mean_box_a_merra2_o = {};
+var_era5_cc = LASSO_era5_temporal_ave_cc;
+var_era5_oc = LASSO_era5_temporal_ave_oc;
+var_era5_o = LASSO_era5_temporal_ave_o;
+var_merra2_cc = LASSO_merra2_temporal_ave_cc;
+var_merra2_oc = LASSO_merra2_temporal_ave_oc;
+var_merra2_o = LASSO_merra2_temporal_ave_o;
+
+% Closed-cell cases 
+for b = 1:length(box_size)
+    for m = 1:size(LASSO_era5_temporal_ave_cc,2)
+        for n = 1:size(LASSO_era5_temporal_ave_cc{m},2)
+            for l = 1:size(LASSO_era5_temporal_ave_cc{m}{n},3)
+            var_index_era5_cc = var_era5_cc{m}{n}(:,:,l);
+            var_index_merra2_cc = var_merra2_cc{m}{n}(:,:,l);
+            
+            center_x = floor(size(var_era5_cc{m}{n}(:,:,l),1) / 2);
+            center_y = floor(size(var_era5_cc{m}{n}(:,:,l),2) / 2);
+            
+            var_era5_cc_i = var_era5_cc{m}{n}(:,:,l);
+            center_block_era5_cc = var_era5_cc_i((center_x-1):(center_x+1), (center_y-1):(center_y+1));
+            point_val_era5_cc = mean(center_block_era5_cc(:), 'omitnan'); % single fixed value
+            var_merra2_cc_i = var_merra2_cc{m}{n}(:,:,l);
+            center_block_merra2_cc = var_merra2_cc_i((center_x-1):(center_x+1), (center_y-1):(center_y+1));
+            point_val_merra2_cc = mean(center_block_merra2_cc(:), 'omitnan'); % single fixed value
+            
+                for i = 1:N_iter
+                    % Randomly choose a point within valid domain
+                    ix_rand = randi([box_size(b)/2+1, size(var_era5_cc{m}{n}(:,:,l),1)-box_size(b)/2]);
+                    iy_rand = randi([box_size(b)/2+1, size(var_era5_cc{m}{n}(:,:,l),2)-box_size(b)/2]);
+                    ix_rand = randi([box_size(b)/2+1, size(var_merra2_cc{m}{n}(:,:,l),1)-box_size(b)/2]);
+                    iy_rand = randi([box_size(b)/2+1, size(var_merra2_cc{m}{n}(:,:,l),2)-box_size(b)/2]);
+                
+                    % Extract box around random point
+                    sub_box_era5_cc = var_index_era5_cc(ix_rand-box_size(b)/2:ix_rand+box_size(b)/2, ...
+                                  iy_rand-box_size(b)/2:iy_rand+box_size(b)/2);
+                    sub_box_merra2_cc = var_index_merra2_cc(ix_rand-box_size(b)/2:ix_rand+box_size(b)/2, ...
+                                  iy_rand-box_size(b)/2:iy_rand+box_size(b)/2);
+                    
+                    % Compute ratio of center point to area mean
+                    area_mean_era5_cc = mean(sub_box_era5_cc(:), 'omitnan');
+                    area_mean_merra2_cc = mean(sub_box_merra2_cc(:), 'omitnan');
+                    
+                    %ratios_era5_cc(i) = point_val_era5_cc / area_mean_era5_cc;
+                    %ratios_merra2_cc(i) = point_val_merra2_cc / area_mean_merra2_cc;
+                    
+                    mean_a_era5_cc(i) = area_mean_era5_cc;
+                    mean_a_merra2_cc(i) = area_mean_merra2_cc;
+                                
+                end
+                %ratios_m_era5_cc(:,l) = ratios_era5_cc;
+                %ratios_m_merra2_cc(:,l) = ratios_merra2_cc;
+                
+                point_m_val_era5_cc(:,l) = point_val_era5_cc;
+                point_m_val_merra2_cc(:,l) = point_val_merra2_cc;
+                
+                mean_m_a_era5_cc(:,l) = mean_a_era5_cc;
+                mean_m_a_merra2_cc(:,l) = mean_a_merra2_cc;
+            end
+            %ratios_c_era5_cc1 = nanmean(ratios_m_era5_cc);
+            %ratios_c_era5_cc(n,:) = ratios_c_era5_cc1;
+            %ratios_c_merra2_cc1 = nanmean(ratios_m_merra2_cc);
+            %ratios_c_merra2_cc(n,:) = ratios_c_merra2_cc1;
+                
+            point_c_val_era5_cc(n,:) = point_m_val_era5_cc;
+            point_c_val_merra2_cc(n,:) = point_m_val_merra2_cc;
+            
+            mean_c_a_era5_cc1 = nanmean(mean_m_a_era5_cc);
+            mean_c_a_era5_cc(n,:) = mean_c_a_era5_cc1;
+            mean_c_a_merra2_cc1 = nanmean(mean_m_a_merra2_cc);
+            mean_c_a_merra2_cc(n,:) = mean_c_a_merra2_cc1;
+        end
+        %ratios_box_era5_cc{b}{m} = ratios_c_era5_cc;
+        %ratios_box_merra2_cc{b}{m} = ratios_c_merra2_cc;
+        
+        point_box_val_era5_cc{b}{m} = point_c_val_era5_cc;
+        point_box_val_merra2_cc{b}{m} = point_c_val_merra2_cc;
+        
+        mean_box_a_era5_cc{b}{m} = mean_c_a_era5_cc;
+        mean_box_a_merra2_cc{b}{m} = mean_c_a_merra2_cc;
+        clear  point_c_val_era5_cc point_m_val_era5_cc mean_m_a_era5_cc mean_c_a_era5_cc ratios_m_era5_cc ratios_c_era5_cc ...
+            point_c_val_merra2_cc point_m_val_merra2_cc mean_m_a_merra2_cc mean_c_a_merra2_cc ratios_m_merra2_cc ratios_c_merra2_cc
+    end
+end
+%
+for m = 1:size(mean_box_a_era5_cc,2)
+    for n = 1:size(mean_box_a_era5_cc{1},2)
+        ratios_box_era5_cc1 = point_box_val_era5_cc{m}{n} ./ mean_box_a_era5_cc{m}{n};
+        ratios_box_era5_cc1(isnan(mean_box_a_era5_cc{m}{n}) | isnan(point_box_val_era5_cc{m}{n})) = NaN;
+        ratios_box_era5_cc{m}{n} = ratios_box_era5_cc1;
+        ratios_box_merra2_cc1 = point_box_val_merra2_cc{m}{n} ./ mean_box_a_merra2_cc{m}{n};
+        ratios_box_merra2_cc1(isnan(mean_box_a_merra2_cc{m}{n}) | isnan(point_box_val_merra2_cc{m}{n})) = NaN;
+        ratios_box_merra2_cc{m}{n} = ratios_box_merra2_cc1;
+    end
+end
+%
+% Open-cell cases
+for b = 1:length(box_size)
+    for m = 1:size(LASSO_era5_temporal_ave_oc,2)
+        for n = 1:size(LASSO_era5_temporal_ave_oc{m},2)
+            for l = 1:size(LASSO_era5_temporal_ave_oc{m}{n},3)
+            var_index_era5_oc = var_era5_oc{m}{n}(:,:,l);
+            var_index_merra2_oc = var_merra2_oc{m}{n}(:,:,l);
+            
+            center_x = floor(size(var_era5_oc{m}{n}(:,:,l),1) / 2);
+            center_y = floor(size(var_era5_oc{m}{n}(:,:,l),2) / 2);
+            
+            var_era5_oc_i = var_era5_oc{m}{n}(:,:,l);
+            center_block_era5_oc = var_era5_oc_i((center_x-1):(center_x+1), (center_y-1):(center_y+1));
+            point_val_era5_oc = mean(center_block_era5_oc(:), 'omitnan'); % single fixed value
+            var_merra2_oc_i = var_merra2_oc{m}{n}(:,:,l);
+            center_block_merra2_oc = var_merra2_oc_i((center_x-1):(center_x+1), (center_y-1):(center_y+1));
+            point_val_merra2_oc = mean(center_block_merra2_oc(:), 'omitnan'); % single fixed value
+            
+                for i = 1:N_iter
+                    % Randomly choose a point within valid domain
+                    ix_rand = randi([box_size(b)/2+1, size(var_era5_oc{m}{n}(:,:,l),1)-box_size(b)/2]);
+                    iy_rand = randi([box_size(b)/2+1, size(var_era5_oc{m}{n}(:,:,l),2)-box_size(b)/2]);
+                    ix_rand = randi([box_size(b)/2+1, size(var_merra2_oc{m}{n}(:,:,l),1)-box_size(b)/2]);
+                    iy_rand = randi([box_size(b)/2+1, size(var_merra2_oc{m}{n}(:,:,l),2)-box_size(b)/2]);
+                
+                    % Extract box around random point
+                    sub_box_era5_oc = var_index_era5_oc(ix_rand-box_size(b)/2:ix_rand+box_size(b)/2, ...
+                                  iy_rand-box_size(b)/2:iy_rand+box_size(b)/2);
+                    sub_box_merra2_oc = var_index_merra2_oc(ix_rand-box_size(b)/2:ix_rand+box_size(b)/2, ...
+                                  iy_rand-box_size(b)/2:iy_rand+box_size(b)/2);
+                    
+                    % Compute ratio of center point to area mean
+                    area_mean_era5_oc = mean(sub_box_era5_oc(:), 'omitnan');
+                    area_mean_merra2_oc = mean(sub_box_merra2_oc(:), 'omitnan');
+                    
+                    %ratios_era5_oc(i) = point_val_era5_oc / area_mean_era5_oc;
+                    %ratios_merra2_oc(i) = point_val_merra2_oc / area_mean_merra2_oc;
+                    
+                    mean_a_era5_oc(i) = area_mean_era5_oc;
+                    mean_a_merra2_oc(i) = area_mean_merra2_oc;
+                                
+                end
+                %ratios_m_era5_oc(:,l) = ratios_era5_oc;
+                %ratios_m_merra2_oc(:,l) = ratios_merra2_oc;
+                
+                point_m_val_era5_oc(:,l) = point_val_era5_oc;
+                point_m_val_merra2_oc(:,l) = point_val_merra2_oc;
+                
+                mean_m_a_era5_oc(:,l) = mean_a_era5_oc;
+                mean_m_a_merra2_oc(:,l) = mean_a_merra2_oc;
+            end
+            %ratios_c_era5_oc1 = nanmean(ratios_m_era5_oc);
+            %ratios_c_era5_oc(n,:) = ratios_c_era5_oc1;
+            %ratios_c_merra2_oc1 = nanmean(ratios_m_merra2_oc);
+            %ratios_c_merra2_oc(n,:) = ratios_c_merra2_oc1;
+                
+            point_c_val_era5_oc(n,:) = point_m_val_era5_oc;
+            point_c_val_merra2_oc(n,:) = point_m_val_merra2_oc;
+            
+            mean_c_a_era5_oc1 = nanmean(mean_m_a_era5_oc);
+            mean_c_a_era5_oc(n,:) = mean_c_a_era5_oc1;
+            mean_c_a_merra2_oc1 = nanmean(mean_m_a_merra2_oc);
+            mean_c_a_merra2_oc(n,:) = mean_c_a_merra2_oc1;
+        end
+        %ratios_box_era5_oc{b}{m} = ratios_c_era5_oc;
+        %ratios_box_merra2_oc{b}{m} = ratios_c_merra2_oc;
+        
+        point_box_val_era5_oc{b}{m} = point_c_val_era5_oc;
+        point_box_val_merra2_oc{b}{m} = point_c_val_merra2_oc;
+        
+        mean_box_a_era5_oc{b}{m} = mean_c_a_era5_oc;
+        mean_box_a_merra2_oc{b}{m} = mean_c_a_merra2_oc;
+        clear  point_c_val_era5_oc point_m_val_era5_oc mean_m_a_era5_oc mean_c_a_era5_oc ratios_m_era5_oc ratios_c_era5_oc ...
+            point_c_val_merra2_oc point_m_val_merra2_oc mean_m_a_merra2_oc mean_c_a_merra2_oc ratios_m_merra2_oc ratios_c_merra2_oc
+    end
+end
+%
+for m = 1:size(mean_box_a_era5_oc,2)
+    for n = 1:size(mean_box_a_era5_oc{1},2)
+        ratios_box_era5_oc1 = point_box_val_era5_oc{m}{n} ./ mean_box_a_era5_oc{m}{n};
+        ratios_box_era5_oc1(isnan(mean_box_a_era5_oc{m}{n}) | isnan(point_box_val_era5_oc{m}{n})) = NaN;
+        ratios_box_era5_oc{m}{n} = ratios_box_era5_oc1;
+        ratios_box_merra2_oc1 = point_box_val_merra2_oc{m}{n} ./ mean_box_a_merra2_oc{m}{n};
+        ratios_box_merra2_oc1(isnan(mean_box_a_merra2_oc{m}{n}) | isnan(point_box_val_merra2_oc{m}{n})) = NaN;
+        ratios_box_merra2_oc{m}{n} = ratios_box_merra2_oc1;
+    end
+end
+%
+% Transitional cases
+for b = 1:length(box_size)
+    for m = 1:size(LASSO_era5_temporal_ave_o,2)
+        for n = 1:size(LASSO_era5_temporal_ave_o{m},2)
+            for l = 1:size(LASSO_era5_temporal_ave_o{m}{n},3)
+            var_index_era5_o = var_era5_o{m}{n}(:,:,l);
+            var_index_merra2_o = var_merra2_o{m}{n}(:,:,l);
+            
+            center_x = floor(size(var_era5_o{m}{n}(:,:,l),1) / 2);
+            center_y = floor(size(var_era5_o{m}{n}(:,:,l),2) / 2);
+            
+            var_era5_o_i = var_era5_o{m}{n}(:,:,l);
+            center_block_era5_o = var_era5_o_i((center_x-1):(center_x+1), (center_y-1):(center_y+1));
+            point_val_era5_o = mean(center_block_era5_o(:), 'omitnan'); % single fixed value
+            var_merra2_o_i = var_merra2_o{m}{n}(:,:,l);
+            center_block_merra2_o = var_merra2_o_i((center_x-1):(center_x+1), (center_y-1):(center_y+1));
+            point_val_merra2_o = mean(center_block_merra2_o(:), 'omitnan'); % single fixed value
+            
+                for i = 1:N_iter
+                    % Randomly choose a point within valid domain
+                    ix_rand = randi([box_size(b)/2+1, size(var_era5_o{m}{n}(:,:,l),1)-box_size(b)/2]);
+                    iy_rand = randi([box_size(b)/2+1, size(var_era5_o{m}{n}(:,:,l),2)-box_size(b)/2]);
+                    ix_rand = randi([box_size(b)/2+1, size(var_merra2_o{m}{n}(:,:,l),1)-box_size(b)/2]);
+                    iy_rand = randi([box_size(b)/2+1, size(var_merra2_o{m}{n}(:,:,l),2)-box_size(b)/2]);
+                
+                    % Extract box around random point
+                    sub_box_era5_o = var_index_era5_o(ix_rand-box_size(b)/2:ix_rand+box_size(b)/2, ...
+                                  iy_rand-box_size(b)/2:iy_rand+box_size(b)/2);
+                    sub_box_merra2_o = var_index_merra2_o(ix_rand-box_size(b)/2:ix_rand+box_size(b)/2, ...
+                                  iy_rand-box_size(b)/2:iy_rand+box_size(b)/2);
+                    
+                    % Compute ratio of center point to area mean
+                    area_mean_era5_o = mean(sub_box_era5_o(:), 'omitnan');
+                    area_mean_merra2_o = mean(sub_box_merra2_o(:), 'omitnan');
+                    
+                    %ratios_era5_o(i) = point_val_era5_o / area_mean_era5_o;
+                    %ratios_merra2_o(i) = point_val_merra2_o / area_mean_merra2_o;
+                    
+                    mean_a_era5_o(i) = area_mean_era5_o;
+                    mean_a_merra2_o(i) = area_mean_merra2_o;
+                                
+                end
+                %ratios_m_era5_o(:,l) = ratios_era5_o;
+                %ratios_m_merra2_o(:,l) = ratios_merra2_o;
+                
+                point_m_val_era5_o(:,l) = point_val_era5_o;
+                point_m_val_merra2_o(:,l) = point_val_merra2_o;
+                
+                mean_m_a_era5_o(:,l) = mean_a_era5_o;
+                mean_m_a_merra2_o(:,l) = mean_a_merra2_o;
+            end
+            %ratios_c_era5_o1 = nanmean(ratios_m_era5_o);
+            %ratios_c_era5_o(n,:) = ratios_c_era5_o1;
+            %ratios_c_merra2_o1 = nanmean(ratios_m_merra2_o);
+            %ratios_c_merra2_o(n,:) = ratios_c_merra2_o1;
+                
+            point_c_val_era5_o(n,:) = point_m_val_era5_o;
+            point_c_val_merra2_o(n,:) = point_m_val_merra2_o;
+            
+            mean_c_a_era5_o1 = nanmean(mean_m_a_era5_o);
+            mean_c_a_era5_o(n,:) = mean_c_a_era5_o1;
+            mean_c_a_merra2_o1 = nanmean(mean_m_a_merra2_o);
+            mean_c_a_merra2_o(n,:) = mean_c_a_merra2_o1;
+        end
+        %ratios_box_era5_o{b}{m} = ratios_c_era5_o;
+        %ratios_box_merra2_o{b}{m} = ratios_c_merra2_o;
+        
+        point_box_val_era5_o{b}{m} = point_c_val_era5_o;
+        point_box_val_merra2_o{b}{m} = point_c_val_merra2_o;
+        
+        mean_box_a_era5_o{b}{m} = mean_c_a_era5_o;
+        mean_box_a_merra2_o{b}{m} = mean_c_a_merra2_o;
+        clear  point_c_val_era5_o point_m_val_era5_o mean_m_a_era5_o mean_c_a_era5_o ratios_m_era5_o ratios_c_era5_o ...
+            point_c_val_merra2_o point_m_val_merra2_o mean_m_a_merra2_o mean_c_a_merra2_o ratios_m_merra2_o ratios_c_merra2_o
+    end
+end
+%
+for m = 1:size(mean_box_a_era5_o,2)
+    for n = 1:size(mean_box_a_era5_o{1},2)
+        ratios_box_era5_o1 = point_box_val_era5_o{m}{n} ./ mean_box_a_era5_o{m}{n};
+        ratios_box_era5_o1(isnan(mean_box_a_era5_o{m}{n}) | isnan(point_box_val_era5_o{m}{n})) = NaN;
+        ratios_box_era5_o{m}{n} = ratios_box_era5_o1;
+        ratios_box_merra2_o1 = point_box_val_merra2_o{m}{n} ./ mean_box_a_merra2_o{m}{n};
+        ratios_box_merra2_o1(isnan(mean_box_a_merra2_o{m}{n}) | isnan(point_box_val_merra2_o{m}{n})) = NaN;
+        ratios_box_merra2_o{m}{n} = ratios_box_merra2_o1;
+    end
+end
+%
+% Add the ratio = 1 cell
+one_cell1_era5 = cell(size(ratios_box_era5_cc{1}));
+one_cell1_merra2 = cell(size(ratios_box_merra2_cc{1}));
+for i = 1:length(ratios_box_era5_cc{1})
+    one_cell1_era5{i} = ones(size(ratios_box_era5_cc{1}{i}(:,:)));  % match the size of each matrix
+    one_cell1_merra2{i} = ones(size(ratios_box_merra2_cc{1}{i}(:,:)));  % match the size of each matrix
+end
+
+one_cell_era5 = cell(1,1);
+one_cell_era5{1} = one_cell1_era5;
+one_cell_merra2 = cell(1,1);
+one_cell_merra2{1} = one_cell1_merra2;
+
+% Insert it as the first row
+ratios_box_era5_cc = [one_cell_era5, ratios_box_era5_cc(1,:) ; ratios_box_era5_cc(2:end,:)];  % add at the top of the first column
+ratios_box_era5_oc = [one_cell_era5, ratios_box_era5_oc(1,:) ; ratios_box_era5_oc(2:end,:)];  % add at the top of the first column
+ratios_box_era5_o = [one_cell_era5, ratios_box_era5_o(1,:) ; ratios_box_era5_o(2:end,:)];  % add at the top of the first column
+ratios_box_merra2_cc = [one_cell_merra2, ratios_box_merra2_cc(1,:) ; ratios_box_merra2_cc(2:end,:)];  % add at the top of the first column
+ratios_box_merra2_oc = [one_cell_merra2, ratios_box_merra2_oc(1,:) ; ratios_box_merra2_oc(2:end,:)];  % add at the top of the first column
+ratios_box_merra2_o = [one_cell_merra2, ratios_box_merra2_o(1,:) ; ratios_box_merra2_o(2:end,:)];  % add at the top of the first column
+%
+%% Plotting
+cell_cc_era5 = mean_box_a_era5_cc;
+cell_oc_era5 = mean_box_a_era5_oc;
+cell_o_era5 = mean_box_a_era5_o;
+cell_sum_era5 = cell(size(cell_cc_era5));
+cell_cc_merra2 = mean_box_a_merra2_cc;
+cell_oc_merra2 = mean_box_a_merra2_oc;
+cell_o_merra2 = mean_box_a_merra2_o;
+cell_sum_merra2 = cell(size(cell_cc_merra2));
+
+cell_cc_era5_p = point_box_val_era5_cc;
+cell_oc_era5_p = point_box_val_era5_oc;
+cell_o_era5_p = point_box_val_era5_o;
+cell_sum_era5_p = cell(size(cell_cc_era5_p));
+cell_cc_merra2_p = point_box_val_merra2_cc;
+cell_oc_merra2_p = point_box_val_merra2_oc;
+cell_o_merra2_p = point_box_val_merra2_o;
+cell_sum_merra2_p = cell(size(cell_cc_merra2_p));
+
+for i = 1:length(cell_cc_era5)
+    for j = 1:length(cell_cc_era5{i})
+        cell_sum_era5{i}{j} = [cell_cc_era5{i}{j}; cell_oc_era5{i}{j}; cell_o_era5{i}{j}];  % Vertical concat
+        cell_sum_era5_p{i}{j} = [cell_cc_era5_p{i}{j}; cell_oc_era5_p{i}{j}; cell_o_era5_p{i}{j}];  % Vertical concat
+        cell_sum_merra2{i}{j} = [cell_cc_merra2{i}{j}; cell_oc_merra2{i}{j}; cell_o_merra2{i}{j}];  % Vertical concat
+        cell_sum_merra2_p{i}{j} = [cell_cc_merra2_p{i}{j}; cell_oc_merra2_p{i}{j}; cell_o_merra2_p{i}{j}];  % Vertical concat
+    end
+end
+
+set(gcf, 'Position', [100, 100, 700, 700]);  % Adjust these values as needed
+t = tiledlayout(4,4);
+t.TileSpacing = 'compact';  % make plots tighter
+t.Padding = 'compact';      % less padding outside
+y_labels = {'1 km', '5 km',  '15 km', '25 km'};
+t_labels = {'1 hr', '3 hr', '6 hr', '18 hr'};
+
+for a = 1:length(mean_box_a_era5_cc)
+        for b = 1:length(mean_box_a_era5_cc{a})
+            c = b+(a-1)*4
+            %subplot(6,4,c)
+            n(c) = nexttile;
+
+            LASSO_era5_x_plot_cc = log10(cell_cc_era5_p{a}{b});
+            LASSO_era5_x_plot_oc = log10(cell_oc_era5_p{a}{b});
+            LASSO_era5_x_plot_o = log10(cell_o_era5_p{a}{b});
+            LASSO_era5_x_plot_sum = log10(cell_sum_era5_p{a}{b});
+            LASSO_merra2_x_plot_cc = log10(cell_cc_merra2_p{a}{b});
+            LASSO_merra2_x_plot_oc = log10(cell_oc_merra2_p{a}{b});
+            LASSO_merra2_x_plot_o = log10(cell_o_merra2_p{a}{b});
+            LASSO_merra2_x_plot_sum = log10(cell_sum_merra2_p{a}{b});
+
+            LASSO_era5_y_plot_cc = log10(cell_cc_era5{a}{b});        
+            LASSO_era5_y_plot_oc = log10(cell_oc_era5{a}{b});        
+            LASSO_era5_y_plot_o = log10(cell_o_era5{a}{b});
+            LASSO_era5_y_plot_sum = log10(cell_sum_era5{a}{b});
+            LASSO_merra2_y_plot_cc = log10(cell_cc_merra2{a}{b});        
+            LASSO_merra2_y_plot_oc = log10(cell_oc_merra2{a}{b});        
+            LASSO_merra2_y_plot_o = log10(cell_o_merra2{a}{b});
+            LASSO_merra2_y_plot_sum = log10(cell_sum_merra2{a}{b});
+
+            LASSO_era5_x_plot_cc(LASSO_era5_x_plot_cc == -Inf) = NaN;
+            LASSO_era5_x_plot_oc(LASSO_era5_x_plot_oc == -Inf) = NaN;
+            LASSO_era5_x_plot_o(LASSO_era5_x_plot_o == -Inf) = NaN;
+            LASSO_era5_x_plot_sum(LASSO_era5_x_plot_sum == -Inf) = NaN;
+            LASSO_merra2_x_plot_cc(LASSO_merra2_x_plot_cc == -Inf) = NaN;
+            LASSO_merra2_x_plot_oc(LASSO_merra2_x_plot_oc == -Inf) = NaN;
+            LASSO_merra2_x_plot_o(LASSO_merra2_x_plot_o == -Inf) = NaN;
+            LASSO_merra2_x_plot_sum(LASSO_merra2_x_plot_sum == -Inf) = NaN;
+            
+            ENA_x_plot_cc = log10(ENA_temporal_ave_cc{b}(:));
+            ENA_x_plot_oc = log10(ENA_temporal_ave_oc{b}(:));
+            ENA_x_plot_o = log10(ENA_temporal_ave_o{b}(:));
+            ENA_x_plot_sum = [ENA_x_plot_cc;ENA_x_plot_oc;ENA_x_plot_o];
+
+            p95s_cc = prctile(ENA_x_plot_cc(~isnan(ENA_x_plot_cc)), 95);
+            p5s_cc = prctile(ENA_x_plot_cc(~isnan(ENA_x_plot_cc)), 5);
+            p95s_oc = prctile(ENA_x_plot_oc(~isnan(ENA_x_plot_oc)), 95);
+            p5s_oc = prctile(ENA_x_plot_oc(~isnan(ENA_x_plot_oc)), 5);
+            p95s_o = prctile(ENA_x_plot_o(~isnan(ENA_x_plot_o)), 95);
+            p5s_o = prctile(ENA_x_plot_o(~isnan(ENA_x_plot_o)), 5);
+            p95s_sum = prctile(ENA_x_plot_sum(~isnan(ENA_x_plot_sum)), 95);
+            p5s_sum = prctile(ENA_x_plot_sum(~isnan(ENA_x_plot_sum)), 5);
+
+            yyaxis right
+            bx_cc = boxplot(ENA_x_plot_cc, 'Orientation', 'horizontal','Positions', 0.38,'Colors', [1, 0.6, 0], 'Widths', 0.08,'Symbol', '');
+            hold on
+            bx_oc = boxplot(ENA_x_plot_oc, 'Orientation', 'horizontal','Positions', 0.28,'Colors','r', 'Widths', 0.08,'Symbol', '');
+            hold on 
+            bx_o = boxplot(ENA_x_plot_o, 'Orientation', 'horizontal','Positions', 0.18,'Colors',[0.2, 0.4, 1] , 'Widths', 0.08,'Symbol', '');
+            hold on
+            bx_sum = boxplot(ENA_x_plot_sum, 'Orientation', 'horizontal','Positions', 0.08,'Colors', 'k', 'Widths', 0.08,'Symbol', '');
+            hold on           
+            set(bx_cc,'LineWidth',1.2)
+            set(bx_oc,'LineWidth',1.2)
+            set(bx_o,'LineWidth',1.2)
+            set(bx_sum,'LineWidth',1.2)
+            h=findobj('LineStyle','--'); set(h, 'LineStyle','-');
+
+            xlim([-4 4])
+            ylim([0 2])
+
+            yyaxis left
+            fill([p5s_sum p95s_sum p95s_sum p5s_sum], [-4 -4 4 4], [0.3 0.3 0.3], 'FaceAlpha', 0.3, 'EdgeColor', 'none');  
+            hold on
+            fill([p5s_oc p95s_oc p95s_oc p5s_oc], [-4 -4 4 4],[1, 0.4, 0.4] , 'FaceAlpha', 0.3, 'EdgeColor', 'none');  
+            hold on
+            fill([p5s_o p95s_o p95s_o p5s_o], [-4 -4 4 4], [0.2, 0.4, 1], 'FaceAlpha', 0.3, 'EdgeColor', 'none');  
+            hold on
+            fill([p5s_cc p95s_cc p95s_cc p5s_cc], [-4 -4 4 4], [153, 112, 0]/255, 'FaceAlpha', 0.3, 'EdgeColor', 'none');  
+            hold on
+            plot([p5s_sum p5s_sum], [-5 5], 'Color',[0, 0, 0, 0.6], 'LineWidth', 1.5, 'LineStyle',':'); 
+            hold on
+            plot([p95s_sum p95s_sum], [-5 5],'Color',[0, 0, 0, 0.6], 'LineWidth', 1.5, 'LineStyle',':'); 
+            hold on
+            plot([p5s_oc p5s_oc], [-5 5], 'Color',[1, 0.4, 0.4, 0.6], 'LineWidth', 1.5, 'LineStyle',':'); 
+            hold on
+            plot([p95s_oc p95s_oc], [-5 5],'Color',[1, 0.4, 0.4, 0.6], 'LineWidth', 1.5, 'LineStyle',':');
+            hold on
+            plot([p5s_o p5s_o], [-5 5], 'Color',[0.2, 0.4, 1, 0.6], 'LineWidth', 1.5, 'LineStyle',':'); 
+            hold on
+            plot([p95s_o p95s_o], [-5 5],'Color',[0.2, 0.4, 1, 0.6], 'LineWidth', 1.5, 'LineStyle',':'); 
+            hold on
+            plot([p5s_cc p5s_cc], [-5 5], 'Color',[1, 0.6, 0, 0.6], 'LineWidth', 1.5, 'LineStyle',':'); 
+            hold on
+            plot([p95s_cc p95s_cc], [-5 5],'Color',[1, 0.6, 0, 0.6], 'LineWidth', 1.5, 'LineStyle',':'); 
+            hold on
+
+            % Set transparency level (0:1)
+            alpha = 0;   
+            hold on
+            s4 = scatter(LASSO_era5_x_plot_sum(:), LASSO_era5_y_plot_sum(:), 30, 'Marker', 'o', 'MarkerEdgeAlpha', 0.4, 'LineWidth',  1.5, 'MarkerEdgeColor', [0.3 0.3 0.3]); % Adjust alpha as   needed
+            hold on
+            alpha = 0.6; 
+            s1 = scatter(LASSO_era5_x_plot_cc(:), LASSO_era5_y_plot_cc(:), 30, 'Marker', 'o', 'MarkerEdgeAlpha', 0.4, 'LineWidth',  1.5, 'MarkerEdgeColor', [1, 0.6, 0]); % Adjust alpha as   needed
+            hold on
+            s2 = scatter(LASSO_era5_x_plot_oc(:), LASSO_era5_y_plot_oc(:), 30, 'Marker', 'o', 'MarkerEdgeAlpha', 0.4, 'LineWidth',  1.5,'MarkerEdgeColor',[1, 0.25, 0.25]); % Adjust alpha as   needed
+            hold on
+            s3 = scatter(LASSO_era5_x_plot_o(:), LASSO_era5_y_plot_o(:), 30, 'Marker', 'o', 'MarkerEdgeAlpha', 0.4, 'LineWidth',  1.5,'MarkerEdgeColor',[0.2, 0.4, 1]); % Adjust alpha as   needed
+            hold on
+            s8 = scatter(LASSO_merra2_x_plot_sum(:), LASSO_merra2_y_plot_sum(:), 30, 'Marker', '^', 'MarkerEdgeAlpha', 0.4, 'LineWidth',  1.5, 'MarkerEdgeColor', [0.3 0.3 0.3]); % Adjust alpha as   needed
+            hold on
+            alpha = 0.6; 
+            s5 = scatter(LASSO_merra2_x_plot_cc(:), LASSO_merra2_y_plot_cc(:), 30, 'Marker', '^', 'MarkerEdgeAlpha', 0.4, 'LineWidth',  1.5, 'MarkerEdgeColor', [1, 0.6, 0]); % Adjust alpha as   needed
+            hold on
+            s6 = scatter(LASSO_merra2_x_plot_oc(:), LASSO_merra2_y_plot_oc(:), 30, 'Marker', '^', 'MarkerEdgeAlpha', 0.4, 'LineWidth',  1.5,'MarkerEdgeColor',[1, 0.25, 0.25]); % Adjust alpha as   needed
+            hold on
+            s7 = scatter(LASSO_merra2_x_plot_o(:), LASSO_merra2_y_plot_o(:), 30, 'Marker', '^', 'MarkerEdgeAlpha', 0.4, 'LineWidth',  1.5,'MarkerEdgeColor',[0.2, 0.4, 1]); % Adjust alpha as   needed
+            hold on
+            % Polynomial fit (degree 1 for linear)
+            % Remove NaNs from x and y
+            x_cc = LASSO_era5_x_plot_cc(:);
+            y_cc = LASSO_era5_y_plot_cc(:);
+            x_oc = LASSO_era5_x_plot_oc(:);
+            y_oc = LASSO_era5_y_plot_oc(:);
+            x_o = LASSO_era5_x_plot_o(:);
+            y_o = LASSO_era5_y_plot_o(:);
+            x_sum = LASSO_era5_x_plot_sum(:);
+            y_sum = LASSO_era5_y_plot_sum(:);
+            x_ccm = LASSO_merra2_x_plot_cc(:);
+            y_ccm = LASSO_merra2_y_plot_cc(:);
+            x_ocm = LASSO_merra2_x_plot_oc(:);
+            y_ocm = LASSO_merra2_y_plot_oc(:);
+            x_om = LASSO_merra2_x_plot_o(:);
+            y_om = LASSO_merra2_y_plot_o(:);
+            x_summ = LASSO_merra2_x_plot_sum(:);
+            y_summ = LASSO_merra2_y_plot_sum(:);
+
+            validIdx_cc = ~isnan(x_cc) & ~isnan(y_cc);  % Find non-NaN indices
+            validIdx_oc = ~isnan(x_oc) & ~isnan(y_oc);  % Find non-NaN indices
+            validIdx_o = ~isnan(x_o) & ~isnan(y_o);  % Find non-NaN indices
+            validIdx_sum = ~isnan(x_sum) & ~isnan(y_sum);  % Find non-NaN indices
+            validIdx_ccm = ~isnan(x_ccm) & ~isnan(y_ccm);  % Find non-NaN indices
+            validIdx_ocm = ~isnan(x_ocm) & ~isnan(y_ocm);  % Find non-NaN indices
+            validIdx_om = ~isnan(x_om) & ~isnan(y_om);  % Find non-NaN indices
+            validIdx_summ = ~isnan(x_summ) & ~isnan(y_summ);  % Find non-NaN indices
+
+            x_clean_cc = x_cc(validIdx_cc);  % Clean x
+            y_clean_cc = y_cc(validIdx_cc);  % Clean y
+            x_clean_oc = x_oc(validIdx_oc);  % Clean x
+            y_clean_oc = y_oc(validIdx_oc);  % Clean y
+            x_clean_o = x_o(validIdx_o);  % Clean x
+            y_clean_o = y_o(validIdx_o);  % Clean y
+            x_clean_sum = x_sum(validIdx_sum);  % Clean x
+            y_clean_sum = y_sum(validIdx_sum);  % Clean y
+            x_clean_ccm = x_ccm(validIdx_ccm);  % Clean x
+            y_clean_ccm = y_ccm(validIdx_ccm);  % Clean y
+            x_clean_ocm = x_ocm(validIdx_ocm);  % Clean x
+            y_clean_ocm = y_ocm(validIdx_ocm);  % Clean y
+            x_clean_om = x_om(validIdx_om);  % Clean x
+            y_clean_om = y_om(validIdx_om);  % Clean y
+            x_clean_summ = x_summ(validIdx_summ);  % Clean x
+            y_clean_summ = y_summ(validIdx_summ);  % Clean y
+
+            % Polynomial fit (degree 1 for linear)
+            p_cc = polyfit(x_clean_cc, y_clean_cc, 1)
+            p_oc = polyfit(x_clean_oc, y_clean_oc, 1); 
+            p_o = polyfit(x_clean_o, y_clean_o, 1); 
+            p_sum = polyfit(x_clean_sum, y_clean_sum, 1);
+            p_ccm = polyfit(x_clean_ccm, y_clean_ccm, 1)
+            p_ocm = polyfit(x_clean_ocm, y_clean_ocm, 1); 
+            p_om = polyfit(x_clean_om, y_clean_om, 1); 
+            p_summ = polyfit(x_clean_summ, y_clean_summ, 1); 
+
+            x_ext_cc =  linspace(min(x_clean_cc) -10, max(x_clean_cc) +10, 1000);
+            y_ext_cc = polyval(p_cc, x_ext_cc);
+            x_ext_oc =  linspace(min(x_clean_oc) -10, max(x_clean_oc) +10, 1000);
+            y_ext_oc = polyval(p_oc, x_ext_oc);
+            x_ext_o =  linspace(min(x_clean_o) -10, max(x_clean_o) +10, 1000);
+            y_ext_o = polyval(p_o, x_ext_o);
+            x_ext_sum =  linspace(min(x_clean_sum) -10, max(x_clean_sum) +10, 1000);
+            y_ext_sum = polyval(p_sum, x_ext_sum);
+            x_ext_ccm =  linspace(min(x_clean_ccm) -10, max(x_clean_ccm) +10, 1000);
+            y_ext_ccm = polyval(p_ccm, x_ext_ccm);
+            x_ext_ocm =  linspace(min(x_clean_ocm) -10, max(x_clean_ocm) +10, 1000);
+            y_ext_ocm = polyval(p_ocm, x_ext_ocm);
+            x_ext_om =  linspace(min(x_clean_om) -10, max(x_clean_om) +10, 1000);
+            y_ext_om = polyval(p_om, x_ext_om);
+            x_ext_summ =  linspace(min(x_clean_summ) -10, max(x_clean_summ) +10, 1000);
+            y_ext_summ = polyval(p_summ, x_ext_summ);
+
+            % Generate fitted y values using the polynomial coefficients
+            y_fit_cc = polyval(p_cc, x_clean_cc);
+            y_fit_oc = polyval(p_oc, x_clean_oc);
+            y_fit_o = polyval(p_o, x_clean_o);
+            y_fit_sum = polyval(p_sum, x_clean_sum);
+            y_fit_ccm = polyval(p_ccm, x_clean_ccm);
+            y_fit_ocm = polyval(p_ocm, x_clean_ocm);
+            y_fit_om = polyval(p_om, x_clean_om);
+            y_fit_summ = polyval(p_summ, x_clean_summ);
+
+            % Add 1:1 line
+            plot([-5 5], [-5 5], '-','color',[0.5 0.5 0.5], 'LineWidth', 2); % Black dashed line
+            hold on;
+            p1 = plot(x_ext_cc, y_ext_cc, '-r', 'LineWidth', 1.6,'color',[0.6, 0.3, 0.1]);  % Plot the fitted line
+            hold on
+            p2 = plot(x_ext_oc, y_ext_oc, '-r', 'LineWidth', 1.6,'color','r');  % Plot the fitted line
+            hold on;
+            p3 = plot(x_ext_o, y_ext_o, '-r', 'LineWidth', 1.6,'color','b');  % Plot the fitted line
+            hold on
+            p4 = plot(x_ext_sum, y_ext_sum, '-r', 'LineWidth', 1.6,'color','k');  % Plot the fitted line
+            hold on
+            p5 = plot(x_ext_ccm, y_ext_ccm, ':r', 'LineWidth', 2,'color',[0.6, 0.3, 0.1]);  % Plot the fitted line
+            hold on
+            p6 = plot(x_ext_ocm, y_ext_ocm, ':r', 'LineWidth', 2,'color','r');  % Plot the fitted line
+            hold on;
+            p7 = plot(x_ext_om, y_ext_om, ':r', 'LineWidth', 2,'color','b');  % Plot the fitted line
+            hold on
+            p8 = plot(x_ext_summ, y_ext_summ, ':r', 'LineWidth', 2,'color','k');  % Plot the fitted line
+            hold on
+
+            xlim([-4 4])
+            ylim([-4 4])
+            if ismember(c, [1 2 3 4]) 
+                title(t_labels{c},'FontSize', 17,'FontWeight', 'bold');
+            end
+            % Set left axis color to black
+            yyaxis left
+            ax = gca; % Get current axis
+            ax.YAxis(1).Color = 'k';
+            ax.YAxis(1).FontSize = 7;
+            if ismember(c, [1 5 9 13 17 21]) 
+                ylabel(y_labels{a},'FontSize', 17,'FontWeight', 'bold');
+            end
+
+            ax.FontSize = 10;
+
+            % Hide right axis safely
+            yyaxis right
+            ax.YAxis(2).Color = 'none';    % now this works
+            grid on;
+             if c == 4
+                legend([s1, s2, s3, s4], {'Closed-cell', 'Open-cell', 'Transitional', 'All cases'}, 'Location', 'northwest','FontSize', 8,'FontWeight', 'bold');
+             end
+        end
+end
+
+xlabel(t,'Log_{10} of Point-Based LWP (g/m^2)','FontSize', 20,'FontWeight', 'bold');
+ylabel(t,'Log_{10} of Area-Based LWP (g/m^2)','FontSize', 20,'FontWeight', 'bold');
+hold off;
+
+%exportgraphics(figure(1),'/Users/PanelPlot_LWP_log_era5_MC.png')
+
+%% Ratio Plot
+figure(1)
+
+set(gcf, 'Position', [100, 100, 900, 350]);  % Adjust figure size as needed
+
+era5_positions   = (1:5) - 0.21;  % slightly left of each cluster tick
+merra2_positions = (1:5) + 0.21;  % slightly right of each cluster tick
+time_var = {'1hr', '3hr', '6hr', '18hr'};  % Time labels for subplots
+
+for t = 1:length(ratios_box_era5_cc{1})  % loop over subplots
+    subplot(1, 4, t)
+  
+    % Initialize separate data arrays for ERA5 and MERRA2 for each cluster
+    era5_data = [];
+    merra2_data = [];
+    group_labels_era5 = [];
+    group_labels_merra2 = [];
+
+    means = zeros(5, 2);  % Two columns for ERA5 and MERRA2
+    p95s = zeros(5, 2);   % Same for 95th percentile
+
+    % Loop through clusters and keep ERA5 and MERRA2 data separate
+    for a = 1:length(ratios_box_era5_cc)
+        % Data for ERA5 (Group 1)
+        LASSO_era5_plot_cc = log10(ratios_box_era5_cc{a}{t}(:));
+        LASSO_era5_plot_cc(isinf(LASSO_era5_plot_cc)) = NaN;
+        era5_data = [era5_data; LASSO_era5_plot_cc];
+        group_labels_era5 = [group_labels_era5; repmat(a, numel(LASSO_era5_plot_cc), 1)];  % ERA5, odd labels
+
+        means(a, 1) = nanmean(LASSO_era5_plot_cc, 'all');
+        p95s(a, 1) = prctile(LASSO_era5_plot_cc(~isnan(LASSO_era5_plot_cc)), 95);
+        p5s(a, 1) = prctile(LASSO_era5_plot_cc(~isnan(LASSO_era5_plot_cc)), 5);
+
+        % Data for MERRA2 (Group 2)
+        LASSO_merra2_plot_cc = log10(ratios_box_merra2_cc{a}{t}(:));  % Assuming LASSO_merra2_ratio_cc for MERRA2 data
+        LASSO_merra2_plot_cc(isinf(LASSO_merra2_plot_cc)) = NaN;
+        merra2_data = [merra2_data; LASSO_merra2_plot_cc];
+        group_labels_merra2 = [group_labels_merra2; repmat(a, numel(LASSO_merra2_plot_cc), 1)];  % MERRA2, even labels
+
+        means(a, 2) = nanmean(LASSO_merra2_plot_cc, 'all');
+        p95s(a, 2) = prctile(LASSO_merra2_plot_cc(~isnan(LASSO_merra2_plot_cc)), 95);
+        p5s(a, 2) = prctile(LASSO_merra2_plot_cc(~isnan(LASSO_merra2_plot_cc)), 5);
+    end
+    x = 1:5;  % Number of clusters
+    fill([x fliplr(x)], [p95s(:,1)' fliplr(p5s(:,1)')], [1, 0.6, 0.6], 'EdgeColor', 'none','FaceAlpha', 0.4); % shaded region
+    hold on
+    fill([x fliplr(x)], [p95s(:,2)' fliplr(p5s(:,2)')], [0.8 0.9 1], 'EdgeColor', 'none','FaceAlpha', 0.5); % shaded region
+    hold on
+    % Create boxplot for ERA5 and MERRA2 separately within each subplot
+    % Boxplot for ERA5 and MERRA2
+    b_era5 = boxplot(era5_data, group_labels_era5,'Positions', era5_positions,'Colors', 'r', 'Widths', 0.35,'Symbol', '');
+    hold on
+    b_merra2 = boxplot(merra2_data, group_labels_merra2,'Positions', merra2_positions, 'Colors', 'b', 'Widths', 0.35,'Symbol', '');
+    set(b_era5,'LineWidth',1.5)
+    set(b_merra2,'LineWidth',1.5)
+    h=findobj('LineStyle','--'); set(h, 'LineStyle',':','LineWidth',2);
+    % Overlay means and 95th percentiles for ERA5 and MERRA2
+    mean_plot_era5 = plot(x - 0.2, means(:, 1), 'ro', 'MarkerSize', 6, 'LineWidth', 1.5);  % ERA5 mean
+    mean_plot_merra2 = plot(x + 0.2, means(:, 2), 'bo', 'MarkerSize', 6, 'LineWidth', 1.5);  % MERRA2 mean
+    percentile_95th_plot_era5 = plot(x - 0.2, p95s(:, 1), 'r^', 'MarkerSize', 7, 'LineWidth', 1.5);  % ERA5 95th
+    percentile_95th_plot_merra2 = plot(x + 0.2, p95s(:, 2), 'b^', 'MarkerSize', 7, 'LineWidth', 1.5);  % MERRA2 95th
+    percentile_5th_plot_era5 = plot(x - 0.2, p5s(:, 1), 'r^', 'MarkerSize', 7, 'LineWidth', 1.5);  % ERA5 95th
+    percentile_5th_plot_merra2 = plot(x + 0.2, p5s(:, 2), 'b^', 'MarkerSize', 7, 'LineWidth', 1.5);  % MERRA2 95th
+
+     % Add y=1 line
+    plot([0 5000], [0 0], 'k:', 'LineWidth', 1.5); % Black dashed line
+    hold on
+    xlim([0 6])
+    ylim([-1.5 1.5])
+    ax = gca; % Get current axis
+    %set(ax, 'FontSize', 7);
+    grid on;
+
+     % Time variable label
+    text(0.05, 0.9, [time_var{t}], 'Units', 'normalized', 'FontSize', 15, 'FontWeight', 'bold')
+
+    % Add legend to the last plot
+    if t == 4
+        legend([mean_plot_era5, mean_plot_merra2, percentile_95th_plot_era5, percentile_95th_plot_merra2], ...
+            {'ERA5 Mean', 'MERRA-2 Mean', 'ERA5 P5 & P95', 'MERRA-2 P5 & P95'}, ...
+            'Location', 'northeast','FontSize', 8,'FontWeight', 'bold');
+    end
+
+    xticks([1 2 3 4 5]);
+    xticklabels({'0.1' '1', '5', '15','25'})
+    ax.FontSize = 10;
+    ax.FontWeight = 'bold';
+end
+
+annotation('textbox', [0.20, 0.45, 0, 0], 'String', 'LWP_{closed-cell}', 'FontSize', 20, 'Rotation', 90, 'HorizontalAlignment', 'center', 'FitBoxToText', 'on', 'EdgeColor', 'none', 'FontWeight', 'bold');
+text(4.5, -1.3, '(a)','FontSize', 30,'FontWeight', 'bold')
+
+hold off;
+%exportgraphics(figure(1),'/Users/PanelPlot_era5_LWP_cc_box_com.png')
+
+figure(2)
+
+set(gcf, 'Position', [100, 100, 900, 350]);  % Adjust figure size as needed
+
+era5_positions   = (1:5) - 0.21;  % slightly left of each cluster tick
+merra2_positions = (1:5) + 0.21;  % slightly right of each cluster tick
+time_var = {'1hr', '3hr', '6hr', '18hr'};  % Time labels for subplots
+
+for t = 1:length(ratios_box_era5_oc{1})  % loop over subplots
+    subplot(1, 4, t)
+  
+    % Initialize separate data arrays for ERA5 and MERRA2 for each cluster
+    era5_data = [];
+    merra2_data = [];
+    group_labels_era5 = [];
+    group_labels_merra2 = [];
+
+    means = zeros(5, 2);  % Two columns for ERA5 and MERRA2
+    p95s = zeros(5, 2);   % Same for 95th percentile
+
+    % Loop through clusters and keep ERA5 and MERRA2 data separate
+    for a = 1:length(ratios_box_era5_oc)
+        % Data for ERA5 (Group 1)
+        LASSO_era5_plot_oc = log10(ratios_box_era5_oc{a}{t}(:));
+        LASSO_era5_plot_oc(isinf(LASSO_era5_plot_oc)) = NaN;
+        era5_data = [era5_data; LASSO_era5_plot_oc];
+        group_labels_era5 = [group_labels_era5; repmat(a, numel(LASSO_era5_plot_oc), 1)];  % ERA5, odd labels
+
+        means(a, 1) = nanmean(LASSO_era5_plot_oc, 'all');
+        p95s(a, 1) = prctile(LASSO_era5_plot_oc(~isnan(LASSO_era5_plot_oc)), 95);
+        p5s(a, 1) = prctile(LASSO_era5_plot_oc(~isnan(LASSO_era5_plot_oc)), 5);
+
+        % Data for MERRA2 (Group 2)
+        LASSO_merra2_plot_oc = log10(ratios_box_merra2_oc{a}{t}(:));  % Assuming LASSO_merra2_ratio_oc for MERRA2 data
+        LASSO_merra2_plot_oc(isinf(LASSO_merra2_plot_oc)) = NaN;
+        merra2_data = [merra2_data; LASSO_merra2_plot_oc];
+        group_labels_merra2 = [group_labels_merra2; repmat(a, numel(LASSO_merra2_plot_oc), 1)];  % MERRA2, even labels
+
+        means(a, 2) = nanmean(LASSO_merra2_plot_oc, 'all');
+        p95s(a, 2) = prctile(LASSO_merra2_plot_oc(~isnan(LASSO_merra2_plot_oc)), 95);
+        p5s(a, 2) = prctile(LASSO_merra2_plot_oc(~isnan(LASSO_merra2_plot_oc)), 5);
+    end
+    x = 1:5;  % Number of clusters
+    fill([x fliplr(x)], [p95s(:,1)' fliplr(p5s(:,1)')], [1, 0.6, 0.6], 'EdgeColor', 'none','FaceAlpha', 0.4); % shaded region
+    hold on
+    fill([x fliplr(x)], [p95s(:,2)' fliplr(p5s(:,2)')], [0.8 0.9 1], 'EdgeColor', 'none','FaceAlpha', 0.5); % shaded region
+    hold on
+    % Create boxplot for ERA5 and MERRA2 separately within each subplot
+    % Boxplot for ERA5 and MERRA2
+    b_era5 = boxplot(era5_data, group_labels_era5,'Positions', era5_positions,'Colors', 'r', 'Widths', 0.35,'Symbol', '');
+    hold on
+    b_merra2 = boxplot(merra2_data, group_labels_merra2,'Positions', merra2_positions, 'Colors', 'b', 'Widths', 0.35,'Symbol', '');
+    set(b_era5,'LineWidth',1.5)
+    set(b_merra2,'LineWidth',1.5)
+    h=findobj('LineStyle','--'); set(h, 'LineStyle',':','LineWidth',2);
+    % Overlay means and 95th percentiles for ERA5 and MERRA2
+    mean_plot_era5 = plot(x - 0.2, means(:, 1), 'ro', 'MarkerSize', 6, 'LineWidth', 1.5);  % ERA5 mean
+    mean_plot_merra2 = plot(x + 0.2, means(:, 2), 'bo', 'MarkerSize', 6, 'LineWidth', 1.5);  % MERRA2 mean
+    percentile_95th_plot_era5 = plot(x - 0.2, p95s(:, 1), 'r^', 'MarkerSize', 7, 'LineWidth', 1.5);  % ERA5 95th
+    percentile_95th_plot_merra2 = plot(x + 0.2, p95s(:, 2), 'b^', 'MarkerSize', 7, 'LineWidth', 1.5);  % MERRA2 95th
+    percentile_5th_plot_era5 = plot(x - 0.2, p5s(:, 1), 'r^', 'MarkerSize', 7, 'LineWidth', 1.5);  % ERA5 95th
+    percentile_5th_plot_merra2 = plot(x + 0.2, p5s(:, 2), 'b^', 'MarkerSize', 7, 'LineWidth', 1.5);  % MERRA2 95th
+
+     % Add y=1 line
+    plot([0 5000], [0 0], 'k:', 'LineWidth', 1.5); % Black dashed line
+    hold on
+    xlim([0 6])
+    ylim([-1.5 1.5])
+    ax = gca; % Get current axis
+    %set(ax, 'FontSize', 7);
+    grid on;
+
+     % Time variable label
+    text(0.05, 0.9, [time_var{t}], 'Units', 'normalized', 'FontSize', 15, 'FontWeight', 'bold')
+
+    % Add legend to the last plot
+    if t == 4
+        legend([mean_plot_era5, mean_plot_merra2, percentile_95th_plot_era5, percentile_95th_plot_merra2], ...
+            {'ERA5 Mean', 'MERRA-2 Mean', 'ERA5 P5 & P95', 'MERRA-2 P5 & P95'}, ...
+            'Location', 'northeast','FontSize', 8,'FontWeight', 'bold');
+    end
+
+    xticks([1 2 3 4 5]);
+    xticklabels({'0.1' '1', '5', '15','25'})
+    ax.FontSize = 10;
+    ax.FontWeight = 'bold';
+end
+
+annotation('textbox', [0.19, 0.45, 0, 0], 'String', 'LWP_{open-cell}', 'FontSize', 20, 'Rotation', 90, 'HorizontalAlignment', 'center', 'FitBoxToText', 'on', 'EdgeColor', 'none', 'FontWeight', 'bold');
+text(4.5, -1.3, '(b)','FontSize', 30,'FontWeight', 'bold')
+hold off;
+%exportgraphics(figure(2),'/Users/PanelPlot_era5_LWP_oc_box_com.png')
+
+figure(3)
+
+set(gcf, 'Position', [100, 100, 900, 350]);  % Adjust figure size as needed
+
+era5_positions   = (1:5) - 0.21;  % slightly left of each cluster tick
+merra2_positions = (1:5) + 0.21;  % slightly right of each cluster tick
+time_var = {'1hr', '3hr', '6hr', '18hr'};  % Time labels for subplots
+
+for t = 1:length(ratios_box_era5_o{1})  % loop over subplots
+    subplot(1, 4, t)
+  
+    % Initialize separate data arrays for ERA5 and MERRA2 for each cluster
+    era5_data = [];
+    merra2_data = [];
+    group_labels_era5 = [];
+    group_labels_merra2 = [];
+
+    means = zeros(5, 2);  % Two columns for ERA5 and MERRA2
+    p95s = zeros(5, 2);   % Same for 95th percentile
+
+    % Loop through clusters and keep ERA5 and MERRA2 data separate
+    for a = 1:length(ratios_box_era5_o)
+        % Data for ERA5 (Group 1)
+        LASSO_era5_plot_o = log10(ratios_box_era5_o{a}{t}(:));
+        LASSO_era5_plot_o(isinf(LASSO_era5_plot_o)) = NaN;
+        era5_data = [era5_data; LASSO_era5_plot_o];
+        group_labels_era5 = [group_labels_era5; repmat(a, numel(LASSO_era5_plot_o), 1)];  % ERA5, odd labels
+
+        means(a, 1) = nanmean(LASSO_era5_plot_o, 'all');
+        p95s(a, 1) = prctile(LASSO_era5_plot_o(~isnan(LASSO_era5_plot_o)), 95);
+        p5s(a, 1) = prctile(LASSO_era5_plot_o(~isnan(LASSO_era5_plot_o)), 5);
+
+        % Data for MERRA2 (Group 2)
+        LASSO_merra2_plot_o = log10(ratios_box_merra2_o{a}{t}(:));  % Assuming LASSO_merra2_ratio_o for MERRA2 data
+        LASSO_merra2_plot_o(isinf(LASSO_merra2_plot_o)) = NaN;
+        merra2_data = [merra2_data; LASSO_merra2_plot_o];
+        group_labels_merra2 = [group_labels_merra2; repmat(a, numel(LASSO_merra2_plot_o), 1)];  % MERRA2, even labels
+
+        means(a, 2) = nanmean(LASSO_merra2_plot_o, 'all');
+        p95s(a, 2) = prctile(LASSO_merra2_plot_o(~isnan(LASSO_merra2_plot_o)), 95);
+        p5s(a, 2) = prctile(LASSO_merra2_plot_o(~isnan(LASSO_merra2_plot_o)), 5);
+    end
+    x = 1:5;  % Number of clusters
+    fill([x fliplr(x)], [p95s(:,1)' fliplr(p5s(:,1)')], [1, 0.6, 0.6], 'EdgeColor', 'none','FaceAlpha', 0.4); % shaded region
+    hold on
+    fill([x fliplr(x)], [p95s(:,2)' fliplr(p5s(:,2)')], [0.8 0.9 1], 'EdgeColor', 'none','FaceAlpha', 0.5); % shaded region
+    hold on
+    % Create boxplot for ERA5 and MERRA2 separately within each subplot
+    % Boxplot for ERA5 and MERRA2
+    b_era5 = boxplot(era5_data, group_labels_era5,'Positions', era5_positions,'Colors', 'r', 'Widths', 0.35,'Symbol', '');
+    hold on
+    b_merra2 = boxplot(merra2_data, group_labels_merra2,'Positions', merra2_positions, 'Colors', 'b', 'Widths', 0.35,'Symbol', '');
+    set(b_era5,'LineWidth',1.5)
+    set(b_merra2,'LineWidth',1.5)
+    h=findobj('LineStyle','--'); set(h, 'LineStyle',':','LineWidth',2);
+    % Overlay means and 95th percentiles for ERA5 and MERRA2
+    mean_plot_era5 = plot(x - 0.2, means(:, 1), 'ro', 'MarkerSize', 6, 'LineWidth', 1.5);  % ERA5 mean
+    mean_plot_merra2 = plot(x + 0.2, means(:, 2), 'bo', 'MarkerSize', 6, 'LineWidth', 1.5);  % MERRA2 mean
+    percentile_95th_plot_era5 = plot(x - 0.2, p95s(:, 1), 'r^', 'MarkerSize', 7, 'LineWidth', 1.5);  % ERA5 95th
+    percentile_95th_plot_merra2 = plot(x + 0.2, p95s(:, 2), 'b^', 'MarkerSize', 7, 'LineWidth', 1.5);  % MERRA2 95th
+    percentile_5th_plot_era5 = plot(x - 0.2, p5s(:, 1), 'r^', 'MarkerSize', 7, 'LineWidth', 1.5);  % ERA5 95th
+    percentile_5th_plot_merra2 = plot(x + 0.2, p5s(:, 2), 'b^', 'MarkerSize', 7, 'LineWidth', 1.5);  % MERRA2 95th
+
+     % Add y=1 line
+    plot([0 5000], [0 0], 'k:', 'LineWidth', 1.5); % Black dashed line
+    hold on
+    xlim([0 6])
+    ylim([-1.5 1.5])
+    ax = gca; % Get current axis
+    %set(ax, 'FontSize', 7);
+    grid on;
+
+     % Time variable label
+    text(0.05, 0.9, [time_var{t}], 'Units', 'normalized', 'FontSize', 15, 'FontWeight', 'bold')
+
+    % Add legend to the last plot
+    if t == 4
+        legend([mean_plot_era5, mean_plot_merra2, percentile_95th_plot_era5, percentile_95th_plot_merra2], ...
+            {'ERA5 Mean', 'MERRA-2 Mean', 'ERA5 P5 & P95', 'MERRA-2 P5 & P95'}, ...
+            'Location', 'northeast','FontSize', 8,'FontWeight', 'bold');
+    end
+
+    xticks([1 2 3 4 5]);
+    xticklabels({'0.1' '1', '5', '15','25'})
+    ax.FontSize = 10;
+    ax.FontWeight = 'bold';
+end
+
+annotation('textbox', [0.20, 0.45, 0, 0], 'String', 'LWP_{transitional}', 'FontSize', 20, 'Rotation', 90, 'HorizontalAlignment', 'center', 'FitBoxToText', 'on', 'EdgeColor', 'none', 'FontWeight', 'bold');
+text(4.5, -1.3, '(c)','FontSize', 30,'FontWeight', 'bold')
+hold off;
+%exportgraphics(figure(3),'/Users/PanelPlot_era5_LWP_o_box_com.png')
+
+figure(4)
+
+cell_cc_era5 = ratios_box_era5_cc;
+cell_oc_era5 = ratios_box_era5_oc;
+cell_o_era5 = ratios_box_era5_o;
+cell_sum_era5 = cell(size(cell_cc_era5));
+cell_cc_merra2 = ratios_box_merra2_cc;
+cell_oc_merra2 = ratios_box_merra2_oc;
+cell_o_merra2 = ratios_box_merra2_o;
+cell_sum_merra2 = cell(size(cell_cc_merra2));
+
+for i = 1:length(cell_cc_era5)
+    for j = 1:length(cell_cc_era5{i})
+        cell_sum_era5{i}{j} = [cell_cc_era5{i}{j}; cell_oc_era5{i}{j}; cell_o_era5{i}{j}];  % Vertical concat
+        cell_sum_merra2{i}{j} = [cell_cc_merra2{i}{j}; cell_oc_merra2{i}{j}; cell_o_merra2{i}{j}];  % Vertical concat
+    end
+end
+
+set(gcf, 'Position', [100, 100, 900, 350]);  % Adjust figure size as needed
+
+era5_positions   = (1:5) - 0.21;  % slightly left of each cluster tick
+merra2_positions = (1:5) + 0.21;  % slightly right of each cluster tick
+time_var = {'1hr', '3hr', '6hr', '18hr'};  % Time labels for subplots
+
+for t = 1:length(ratios_box_era5_cc{1})  % loop over subplots
+    subplot(1, 4, t)
+  
+    % Initialize separate data arrays for ERA5 and MERRA2 for each cluster
+    era5_data = [];
+    merra2_data = [];
+    group_labels_era5 = [];
+    group_labels_merra2 = [];
+
+    means = zeros(5, 2);  % Two columns for ERA5 and MERRA2
+    p95s = zeros(5, 2);   % Same for 95th percentile
+
+    % Loop through clusters and keep ERA5 and MERRA2 data separate
+    for a = 1:length(ratios_box_era5_cc)
+        % Data for ERA5 (Group 1)
+        LASSO_era5_plot_sum = log10(cell_sum_era5{a}{t}(:));
+        LASSO_era5_plot_sum(isinf(LASSO_era5_plot_sum)) = NaN;
+        era5_data = [era5_data; LASSO_era5_plot_sum];
+        group_labels_era5 = [group_labels_era5; repmat(a, numel(LASSO_era5_plot_sum), 1)];  % ERA5, odd labels
+
+        means(a, 1) = nanmean(LASSO_era5_plot_sum, 'all');
+        p95s(a, 1) = prctile(LASSO_era5_plot_sum(~isnan(LASSO_era5_plot_sum)), 95);
+        p5s(a, 1) = prctile(LASSO_era5_plot_sum(~isnan(LASSO_era5_plot_sum)), 5);
+
+        % Data for MERRA2 (Group 2)
+        LASSO_merra2_plot_sum = log10(cell_sum_merra2{a}{t}(:));  % Assuming LASSO_merra2_ratio_sum for MERRA2 data
+        LASSO_merra2_plot_sum(isinf(LASSO_merra2_plot_sum)) = NaN;
+        merra2_data = [merra2_data; LASSO_merra2_plot_sum];
+        group_labels_merra2 = [group_labels_merra2; repmat(a, numel(LASSO_merra2_plot_sum), 1)];  % MERRA2, even labels
+
+        means(a, 2) = nanmean(LASSO_merra2_plot_sum, 'all');
+        p95s(a, 2) = prctile(LASSO_merra2_plot_sum(~isnan(LASSO_merra2_plot_sum)), 95);
+        p5s(a, 2) = prctile(LASSO_merra2_plot_sum(~isnan(LASSO_merra2_plot_sum)), 5);
+    end
+    x = 1:5;  % Number of clusters
+    fill([x fliplr(x)], [p95s(:,1)' fliplr(p5s(:,1)')], [1, 0.6, 0.6], 'EdgeColor', 'none','FaceAlpha', 0.4); % shaded region
+    hold on
+    fill([x fliplr(x)], [p95s(:,2)' fliplr(p5s(:,2)')], [0.8 0.9 1], 'EdgeColor', 'none','FaceAlpha', 0.5); % shaded region
+    hold on
+    % Create boxplot for ERA5 and MERRA2 separately within each subplot
+    % Boxplot for ERA5 and MERRA2
+    b_era5 = boxplot(era5_data, group_labels_era5,'Positions', era5_positions,'Colors', 'r', 'Widths', 0.35,'Symbol', '');
+    hold on
+    b_merra2 = boxplot(merra2_data, group_labels_merra2,'Positions', merra2_positions, 'Colors', 'b', 'Widths', 0.35,'Symbol', '');
+    set(b_era5,'LineWidth',1.5)
+    set(b_merra2,'LineWidth',1.5)
+    h=findobj('LineStyle','--'); set(h, 'LineStyle',':','LineWidth',2);
+    % Overlay means and 95th percentiles for ERA5 and MERRA2
+    mean_plot_era5 = plot(x - 0.2, means(:, 1), 'ro', 'MarkerSize', 6, 'LineWidth', 1.5);  % ERA5 mean
+    mean_plot_merra2 = plot(x + 0.2, means(:, 2), 'bo', 'MarkerSize', 6, 'LineWidth', 1.5);  % MERRA2 mean
+    percentile_95th_plot_era5 = plot(x - 0.2, p95s(:, 1), 'r^', 'MarkerSize', 7, 'LineWidth', 1.5);  % ERA5 95th
+    percentile_95th_plot_merra2 = plot(x + 0.2, p95s(:, 2), 'b^', 'MarkerSize', 7, 'LineWidth', 1.5);  % MERRA2 95th
+    percentile_5th_plot_era5 = plot(x - 0.2, p5s(:, 1), 'r^', 'MarkerSize', 7, 'LineWidth', 1.5);  % ERA5 95th
+    percentile_5th_plot_merra2 = plot(x + 0.2, p5s(:, 2), 'b^', 'MarkerSize', 7, 'LineWidth', 1.5);  % MERRA2 95th
+
+     % Add y=1 line
+    plot([0 5000], [0 0], 'k:', 'LineWidth', 1.5); % Black dashed line
+    hold on
+    xlim([0 6])
+    ylim([-1.5 1.5])
+    ax = gca; % Get current axis
+    %set(ax, 'FontSize', 7);
+    grid on;
+
+     % Time variable label
+    text(0.05, 0.9, [time_var{t}], 'Units', 'normalized', 'FontSize', 15, 'FontWeight', 'bold')
+
+    % Add legend to the last plot
+    if t == 4
+        legend([mean_plot_era5, mean_plot_merra2, percentile_95th_plot_era5, percentile_95th_plot_merra2], ...
+            {'ERA5 Mean', 'MERRA-2 Mean', 'ERA5 P5 & P95', 'MERRA-2 P5 & P95'}, ...
+            'Location', 'northeast','FontSize', 8,'FontWeight', 'bold');
+    end
+
+    xticks([1 2 3 4 5]);
+    xticklabels({'0.1' '1', '5', '15','25'})
+    ax.FontSize = 10;
+    ax.FontWeight = 'bold';
+end
+
+annotation('textbox', [0.52, 0.08, 0, 0], 'String', 'Spatial Scale (km)', 'FontSize', 20, 'HorizontalAlignment', 'center', 'FitBoxToText', 'on', 'EdgeColor', 'none', 'FontWeight', 'bold');
+annotation('textbox', [0.19, 0.45, 0, 0], 'String', 'LWP_{all cases}', 'FontSize', 20, 'Rotation', 90, 'HorizontalAlignment', 'center', 'FitBoxToText', 'on', 'EdgeColor', 'none', 'FontWeight', 'bold');
+text(4.5, -1.3, '(d)','FontSize', 30,'FontWeight', 'bold')
+hold off;
+%exportgraphics(figure(4),'/Users/PanelPlot_era5_LWP_sum_box_com.png')
